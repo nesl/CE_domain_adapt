@@ -82,11 +82,10 @@ def check_missed_events(result_filepath, ae_files):
 
 
     # open and parse the results of our CE detection
-    atomic_events, watchbox_information, event_data = \
+    overall_atomic_events, watchbox_information, event_data = \
         parse_ce_results_for_file(result_filepath)
 
     
-
     # This is of the form [(ae_name, [(time, camera, wbname, obj_data), ...])]
     events_to_check = []
 
@@ -121,12 +120,65 @@ def check_missed_events(result_filepath, ae_files):
             
             events_to_check.append(ae_to_add)
     
-    return events_to_check, atomic_events, watchbox_information
+    return events_to_check, overall_atomic_events, watchbox_information
+
+
+# Get the total number of frames in this video
+def get_video_and_data(video_path):
+
+    vidcap = cv2.VideoCapture(video_path)
+    frames = vidcap.get(cv2.CAP_PROP_FRAME_COUNT)
+    return int(frames), vidcap
+
+
+# Parse the AE function to see what we should be looking for.
+#  The index tells us in a multi-watchbox AE which one we should look at
+def parse_ae(ae_text, index):
+
+    # Now, get the model and size data
+    ae_split = ae_text.split("composition")[1:]
+    ae_split = [x.split("self.watchboxes") for x in ae_split]
+    ae_split = [x[0] for x in ae_split]
+
+    ae_text_of_interest = ae_split[index]
+
+    # Get the model and size
+    model = ae_text_of_interest.split("model='")[1].split("')")[0]
+    comp_size = ae_text_of_interest.split(".size")[1][2:].split(" ")[0]
+    
+    return model, comp_size
+
+        
+
+# Get an image for a particular frame index
+def get_image_for_frame_index(vidcap, frame_index):
+
+    #  Start reading data 
+    vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_index)
+    return read_next_image(vidcap)
+
+# Read the next image
+def read_next_image(vidcap):
+    _, image_to_draw = vidcap.read()
+    # Convert from bgr to rgb
+    image_to_draw = cv2.cvtColor(image_to_draw, cv2.COLOR_BGR2RGB)
+
+    return image_to_draw
+
+
+# Get the watchbox coordinates and draw it over the image
+def draw_wb_coords(image_to_draw, wb_data, event_to_check):
+    # First, get the watchbox coordinates
+    wb_coords = wb_data[event_to_check[2]]["positions"]
+    # Draw the watchbox
+    cv2.rectangle(image_to_draw, (wb_coords[0], wb_coords[1]), \
+        (wb_coords[2], wb_coords[3]), (0, 0, 255), 3)
+    return image_to_draw
 
     
 # We also need to grab images at a given frame index
 #  (2163, 'cam0', 'bridgewatchbox5', {36: {'bbox_data': [305.64, 531.76, 333.87, 543.84], 'prediction': 1}, 37: {'bbox_data': [42.21, 551.0, 71.59, 565.2], 'prediction': 1}, 38: {'bbox_data': [224.01, 521.07, 251.96, 533.43], 'prediction': 1}, 40: {'bbox_data': [5.59, 524.0, 35.61, 537.0], 'prediction': 1}})
-def get_image_for_frame(event_to_check, video_dir, wb_data):
+def get_image_for_event(event_to_check, video_dir, wb_data):
 
     # First, get the full video filepaths
     video_filepaths = [x for x in os.listdir(video_dir) if ".mp4" in x]
@@ -150,11 +202,7 @@ def get_image_for_frame(event_to_check, video_dir, wb_data):
 
     # Now we draw on the image.
 
-    # First, get the watchbox coordinates
-    wb_coords = wb_data[event_to_check[2]]["positions"]
-    # Draw the watchbox
-    cv2.rectangle(image_to_draw, (wb_coords[0], wb_coords[1]), \
-        (wb_coords[2], wb_coords[3]), (0, 0, 255), 3)
+    image_to_draw = draw_wb_coords(image_to_draw, wb_data, event_to_check)
     # Now, draw all the objects
     obj_classes = {}
     for obj_track in event_to_check[3].keys():
@@ -188,6 +236,16 @@ def get_class_grouping(obj_classes):
         else:
             class_counts[class_type] += 1
     return class_counts
+
+
+# Get class name from index
+def get_name_from_index(class_mappings, index):
+
+    name = ""
+    for x in class_mappings.keys():
+        if class_mappings[x] == index:
+            name = x
+    return name
 
 
 # We also need to do some interpretation of our language
