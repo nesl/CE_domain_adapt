@@ -1,5 +1,6 @@
 import os
 import cv2
+from tqdm import tqdm
 
 # Parse the CE results for a particular take.
 #  Example ce_file: "results/CE1_smoke_50_True_True_True/364/ce_output.txt"
@@ -131,6 +132,26 @@ def get_video_and_data(video_path):
     return int(frames), vidcap
 
 
+# Add a watchbox to a video
+def add_wb_to_video(video_path, wb_coords, save_path):
+
+    # Get the total number of frames
+    total_frames, vidcap = get_video_and_data(video_path)
+    width = int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc('F','M','P','4'), 30, (width, height))
+
+    for i in tqdm(range(total_frames)):
+        # Iterate through entire video file, and save it
+        img1 = read_next_image(vidcap)
+        img1 = draw_wb_coords(img1, wb_coords)
+        out.write(img1)
+    out.release()
+    vidcap.release()
+
+
+
 # Parse the AE function to see what we should be looking for.
 #  The index tells us in a multi-watchbox AE which one we should look at
 def parse_ae(ae_text, index):
@@ -166,10 +187,13 @@ def read_next_image(vidcap):
     return image_to_draw
 
 
-# Get the watchbox coordinates and draw it over the image
-def draw_wb_coords(image_to_draw, wb_data, event_to_check):
+def get_wb_coords(wb_data, event_to_check):
     # First, get the watchbox coordinates
     wb_coords = wb_data[event_to_check[2]]["positions"]
+    return wb_coords
+
+# Get the watchbox coordinates and draw it over the image
+def draw_wb_coords(image_to_draw, wb_coords):
     # Draw the watchbox
     cv2.rectangle(image_to_draw, (wb_coords[0], wb_coords[1]), \
         (wb_coords[2], wb_coords[3]), (0, 0, 255), 3)
