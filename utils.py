@@ -79,7 +79,7 @@ def get_obj_data_for_tracks(watchbox_event, ae_files):
 
 # First, get the CE results for a particular take
 #  result_path: e.g. "DistributedCE/detection/ce_results/CE1_smoke_50_True_True_True/378"
-def check_missed_events(result_filepath, ae_files):
+def list_detected_events(result_filepath, ae_files):
 
 
     # open and parse the results of our CE detection
@@ -167,6 +167,9 @@ def parse_ae(ae_text, index):
     model = ae_text_of_interest.split("model='")[1].split("')")[0]
     comp_size = ae_text_of_interest.split(".size")[1][2:].split(" ")[0]
     
+    # Make sure comp_size is all numeric
+    comp_size = ''.join([x for x in comp_size if x.isnumeric()])
+    
     return model, comp_size
 
         
@@ -199,7 +202,11 @@ def draw_wb_coords(image_to_draw, wb_coords):
         (wb_coords[2], wb_coords[3]), (0, 0, 255), 3)
     return image_to_draw
 
-    
+
+# Save the image
+def save_image(filepath, img):
+    cv2.imwrite(filepath, img)
+
 # We also need to grab images at a given frame index
 #  (2163, 'cam0', 'bridgewatchbox5', {36: {'bbox_data': [305.64, 531.76, 333.87, 543.84], 'prediction': 1}, 37: {'bbox_data': [42.21, 551.0, 71.59, 565.2], 'prediction': 1}, 38: {'bbox_data': [224.01, 521.07, 251.96, 533.43], 'prediction': 1}, 40: {'bbox_data': [5.59, 524.0, 35.61, 537.0], 'prediction': 1}})
 def get_image_for_event(event_to_check, video_dir, wb_data):
@@ -226,7 +233,10 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
 
     # Now we draw on the image.
 
-    image_to_draw = draw_wb_coords(image_to_draw, wb_data, event_to_check)
+    # Get the wb coords and draw the image
+    wb_coords = get_wb_coords(wb_data, event_to_check)
+    image_to_draw = draw_wb_coords(image_to_draw, wb_coords)
+
     # Now, draw all the objects
     obj_classes = {}
     for obj_track in event_to_check[3].keys():

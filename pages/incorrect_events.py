@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import check_missed_events, get_image_for_event, get_class_grouping, get_name_from_index
+from utils import list_detected_events, get_image_for_event, get_class_grouping, get_name_from_index
 import json
 
 from streamlit_extras.switch_page_button import switch_page
@@ -29,7 +29,7 @@ ae_files = ["data/ae_cam0.txt", "data/ae_cam1.txt", "data/ae_cam2.txt"]
 video_dir = "data"
 
 # Get the events
-events_to_check, ae_data, wb_data = check_missed_events(result_path, ae_files)
+events_to_check, ae_data, wb_data = list_detected_events(result_path, ae_files)
 # Get the class mappings
 class_mappings = json.load(open("data/class_mappings.json", "r"))
 

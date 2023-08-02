@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_extras.switch_page_button import switch_page
 import time
-from utils import get_image_for_frame_index, get_video_and_data, check_missed_events, \
+from utils import get_image_for_frame_index, get_video_and_data, list_detected_events, \
     read_next_image, get_wb_coords, parse_ae, add_wb_to_video
 from streamlit_javascript import st_javascript
 
@@ -50,7 +50,7 @@ def draw_rect(vidsize, wb_coords):
 # wrapper for caching event data
 @st.cache_data
 def get_events(result_path, ae_files):
-    return check_missed_events(result_path, ae_files)
+    return list_detected_events(result_path, ae_files)
 
 
 st.title('Determining Correct Time of Events')
