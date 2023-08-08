@@ -79,7 +79,7 @@ def get_ordered_relevant_detected_aes(events_to_check, detected_time):
 def domain_adapt(result_path, ae_files, detected_time, video_dir):
 
     # Get the events
-    events_to_check, ae_data, wb_data = list_detected_events(result_path, ae_files)
+    events_to_check, ae_programs, wb_data = list_detected_events(result_path, ae_files)
 
     # Get relevant AEs based on the detection time
     relevant_aes, relevant_ae_times = get_ordered_relevant_detected_aes(events_to_check, detected_time)
@@ -95,7 +95,7 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
         # Get watchbox data for this atomic event
         current_event_name = ae_event[0]
         current_event_data = ae_event[1]
-        ae_program_for_event = ae_data[current_event_name][1]
+        ae_program_for_event = ae_programs[current_event_name][1]
 
         print(current_event_name)
         print(upper_bound_ae_time)
@@ -121,6 +121,11 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
         lower_bound_ae_time = 0 if ae_i==len(relevant_ae_times)-1 else relevant_ae_times[ae_i+1][1]
             
 
+    # Things we still have to do:
+    #   - Figure out how to 'confirm' an atomic event
+    #   - Evaluate a 'confirmed' atomic event
+    #   - Move on to the next atomic event
+    
         
 
 
