@@ -3,6 +3,12 @@ from utils import get_image_for_frame_index, get_video_and_data, list_detected_e
     read_next_image, get_wb_coords, parse_ae, add_wb_to_video, \
     get_image_for_event, save_image, get_ordered_vicinal_events
 
+# Import the languageCE files
+import sys
+sys.path.append('../DistributedCE/detection/server_code')
+from LanguageCE.test_ce import build_ce1
+import json
+
 
 # Need to come up with some test cases:
 #   - AE missing randomly
@@ -80,6 +86,14 @@ def get_vicinal_events_within_time(lower_bound, upper_bound, ordered_vicinal_eve
     return vicinal_events_within_range
 
 
+
+
+# Determine which aes have occurred, or partially occurred
+def find_closest_aes(known_vicinal_events, ce_obj):
+
+    ce_obj.find_closest_aes(known_vicinal_events)
+    sadf
+
     
 
 
@@ -107,7 +121,7 @@ def get_vicinal_events_within_time(lower_bound, upper_bound, ordered_vicinal_eve
 
 
 # We need to get our list of AEs and their times which they were detected.
-def domain_adapt(result_path, ae_files, detected_time, video_dir):
+def domain_adapt(result_path, ae_files, detected_time, video_dir, ce_obj):
 
     # Get the events
     events_to_check, ae_programs, wb_data = list_detected_events(result_path, ae_files)
@@ -125,14 +139,15 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
     lower_bound_ae_time = relevant_ae_times[0][1]
 
 
-    # Need some variable for tracking the events which were correctly detected
-    # And the times they were detected
-    #  List of (ae_name, time)
-    known_aes = []
+    
 
     ###########
     # PART 1: Check if the atomic event was recognized properly
     ########### 
+
+    # Track the recognized vicinal events
+    #  Data is {wb_name: {time : event}}
+    known_vicinal_events = {}
 
     # Iterate backwards from last AE (by default this is already sorted in reverse)
     for ae_i, ae_event in enumerate(relevant_aes):
@@ -142,16 +157,8 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
         current_event_data = ae_event[1]
         ae_program_for_event = ae_programs[current_event_name][1]
 
-        # print(current_event_name)
-        # print(upper_bound_ae_time)
-        # print(lower_bound_ae_time)
-
-
-        
         #  Now, iterate through each watchbox state relevant to this AE
         for wb_event_i, wb_event in enumerate(current_event_data):
-
-
 
             # Get the time for this watchbox event
             wb_event_time = wb_event[0]
@@ -166,25 +173,39 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
             img, objects = get_image_for_event(wb_event, video_dir, wb_data)
             save_image("results/x.jpg", img)
 
-
-        # Save this ae to our known AEs
-        known_aes.append((current_event_name, relevant_ae_times[ae_i]))
+            
+            # By default, we add each wb event
+            wb_name = wb_event[2]
+            if wb_name not in known_vicinal_events:
+                known_vicinal_events[wb_name] = {}
+            known_vicinal_events[wb_name][wb_event_time] = wb_event
 
         # Now update our upper and lower bound ae times
         upper_bound_ae_time = relevant_ae_times[ae_i][1]
         lower_bound_ae_time = 0 if ae_i==len(relevant_ae_times)-1 else relevant_ae_times[ae_i+1][1]
             
-
+    # Now, update our the known vicinal events so that it is easier to index
+    #  Basically, each list of times must be ordered in ascending order
+    for wb_key in known_vicinal_events.keys():
+        # Order the keys
+        sorted_times = sorted(list(known_vicinal_events[wb_key].keys()))
+        # Now sort the vicinal events under each watchbox
+        known_vicinal_events[wb_key] = [known_vicinal_events[wb_key][x] for x in sorted_times]
 
 
     ######
     # PART 1.5: Decide which AEs still need to be confirmed.
     #   This also includes AEs which did not occur on time
+    #  Treat it as having received a set of confirmed watchbox states
+    #    and determine whether an AE has happened (which may involve multiple states)
     ######
 
+    # Decide which AEs have been confirmed
+    #  and which ones have been partially confirmed...
+    find_closest_aes(known_vicinal_events, ce_obj)
 
-    print(known_aes)
-    asdf
+    
+
 
 
     #########
@@ -235,5 +256,20 @@ ae_files = ["data/ae_cam0.txt", "data/ae_cam1.txt", "data/ae_cam2.txt"]
 CE_detection_time = 18000
 video_dir = "data"
 
-domain_adapt(result_path, ae_files, CE_detection_time, video_dir)
+# Open our config file
+with open("../DistributedCE/detection/server_code/configs/local.json", "r") as f:
+    server_config = json.load(f)
+class_mappings = server_config["class_mappings"]
 
+# Get the CE we are interested in
+ce_obj, ce_structure = build_ce1(class_mappings)
+
+domain_adapt(result_path, ae_files, CE_detection_time, video_dir, ce_obj)
+
+
+
+
+
+
+# Side note
+#   - you may end up missing an intermediate wb state (e.g. wb@1, wb@2)
