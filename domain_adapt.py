@@ -1,6 +1,7 @@
 import os
 from utils import get_image_for_frame_index, get_video_and_data, list_detected_events, \
-    read_next_image, get_wb_coords, parse_ae, add_wb_to_video, get_image_for_event, save_image
+    read_next_image, get_wb_coords, parse_ae, add_wb_to_video, \
+    get_image_for_event, save_image, get_ordered_vicinal_events
 
 
 # Need to come up with some test cases:
@@ -65,6 +66,22 @@ def get_ordered_relevant_detected_aes(events_to_check, detected_time):
     return relevant_aes, relevant_ae_times
 
 
+# Find vicinal events within a period of time
+def get_vicinal_events_within_time(lower_bound, upper_bound, ordered_vicinal_events):
+    
+    vicinal_events_within_range = []
+    # Iterate through the list of events
+    for vicinal_event in ordered_vicinal_events:
+        
+        event_time = vicinal_event[0]["time"]
+        if lower_bound < event_time and event_time < upper_bound:
+            vicinal_events_within_range.append(vicinal_event)
+
+    return vicinal_events_within_range
+
+
+    
+
 
 # To make things really simple, this is the algorithm:
 #   Go through each AE in reverse, starting from closest AE to CE detection time:
@@ -73,6 +90,20 @@ def get_ordered_relevant_detected_aes(events_to_check, detected_time):
 #        the next AE/CE detection time, and just after the previous watchbox or AE event.
 #      If it isn't found, then it means the previous AE was probably not correct.
 #      And this process would then continue.
+
+#  Note - verifying if something is correct is easy.
+#     So when we go through several possible AEs (e.g. an OR'd statement),
+#     we should verify as many events as we can (in terms of watchbox states)
+#        which change upon every vicinal event - this is according to the bounds.
+#     Then, given those watchbox states, we can identify which AEs
+#       are most likely, and start requesting the user to look for those.
+#     Once an AE is determined with certainty, then we move on.
+#      By moving on, we seek the next "necessary" event, meaning that
+#       we ignore other events which were optional (e.g. in OR)
+
+#  Note - we need to eval if the corrected watchbox states results
+#    in a necessary AE
+
 
 
 # We need to get our list of AEs and their times which they were detected.
@@ -84,10 +115,24 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
     # Get relevant AEs based on the detection time
     relevant_aes, relevant_ae_times = get_ordered_relevant_detected_aes(events_to_check, detected_time)
 
-    print(relevant_ae_times)
+    # Get all vicinal events ordered by time
+    # Remember - this returns a pair of 
+    # [{'camera_id': X, 'results': [], 'time': X}, tracked objects]
+    ordered_vicinal_events = get_ordered_vicinal_events(ae_files)
+
     # Check the later and previous AEs
     upper_bound_ae_time = detected_time
     lower_bound_ae_time = relevant_ae_times[0][1]
+
+
+    # Need some variable for tracking the events which were correctly detected
+    # And the times they were detected
+    #  List of (ae_name, time)
+    known_aes = []
+
+    ###########
+    # PART 1: Check if the atomic event was recognized properly
+    ########### 
 
     # Iterate backwards from last AE (by default this is already sorted in reverse)
     for ae_i, ae_event in enumerate(relevant_aes):
@@ -97,12 +142,17 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
         current_event_data = ae_event[1]
         ae_program_for_event = ae_programs[current_event_name][1]
 
-        print(current_event_name)
-        print(upper_bound_ae_time)
-        print(lower_bound_ae_time)
+        # print(current_event_name)
+        # print(upper_bound_ae_time)
+        # print(lower_bound_ae_time)
+
+
         
         #  Now, iterate through each watchbox state relevant to this AE
         for wb_event_i, wb_event in enumerate(current_event_data):
+
+
+
             # Get the time for this watchbox event
             wb_event_time = wb_event[0]
             # Parse the AE to get some data
@@ -116,10 +166,43 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
             img, objects = get_image_for_event(wb_event, video_dir, wb_data)
             save_image("results/x.jpg", img)
 
+
+        # Save this ae to our known AEs
+        known_aes.append((current_event_name, relevant_ae_times[ae_i]))
+
         # Now update our upper and lower bound ae times
         upper_bound_ae_time = relevant_ae_times[ae_i][1]
         lower_bound_ae_time = 0 if ae_i==len(relevant_ae_times)-1 else relevant_ae_times[ae_i+1][1]
             
+
+
+    print(known_aes)
+    asdf
+
+
+    #########
+    # PART 2: If any atomic event is missed, verify watchbox states of vicinal events
+    #          for the times that we should be looking for (e.g. incorrect AEs)
+    #########
+
+    # Now, if the watchbox state at the time of the detected AE is incorrect,
+    #  We have to establish which vicinal events are correct
+    events_to_check = get_vicinal_events_within_time(lower_bound_ae_time, upper_bound_ae_time, ordered_vicinal_events)
+    # Iterate through each vicinal event and verify it
+    for ve_i, vicinal_event in enumerate(events_to_check):
+
+        # First, get the time, then the camera
+        ev_time = vicinal_event[0]["time"]
+        cam_str = "cam" + str(vicinal_event[0]["camera_id"])
+        wb_name = [y for y,x in wb_data.items() if x["watchbox_id"] \
+                == vicinal_event[0]["results"][0]["watchboxes"][0]][0]
+
+        wb_event = (ev_time, cam_str, wb_name, vicinal_event[1])
+
+        # Now, we can get the image for this vicinal event and save it
+        img, objects = get_image_for_event(wb_event, video_dir, wb_data)
+
+
 
     # Things we still have to do:
     #   - Figure out how to 'confirm' an atomic event

@@ -66,7 +66,6 @@ def get_obj_data_for_tracks(watchbox_event, ae_files):
             for track_id in line_data["tracks"].keys():
                 if track_id in track_ids_of_interest:
                     last_seen_data[track_id] = line_data["tracks"][track_id]
-
             
             # The frames match!
             #   So we break here.
@@ -74,6 +73,70 @@ def get_obj_data_for_tracks(watchbox_event, ae_files):
                 break # Break since we found the data
 
     return last_seen_data, camid, frame_index
+
+
+# For all AE files, pull up all the vicinal events
+#  The result is a list of [()] IDK yet
+def get_ordered_vicinal_events(ae_files):
+
+    # First, iterate through each ae file and get its vicinal events
+    vicinal_event_dict = {x:[] for x in ae_files}
+    for ae_file in ae_files:
+        with open(ae_file, "r") as af:
+            while True:
+                # Read a line
+                line = af.readline()
+                if not line:
+                    break
+
+                # Check if there's a vicinal event
+                line_data = eval(line)
+                vicinal_event = line_data["vicinal_events"]
+                if vicinal_event:
+                    vicinal_event_dict[ae_file].append(vicinal_event)
+                    vicinal_event.append(line_data["tracks"])
+    
+    # Then we merge the lists such that all vicinal events are in order
+    vicinal_event_sequence = []
+    # This var keeps track of the current index in each ae_file until all vicinal events
+    #  are added.
+    vicinal_event_tracker = {x:0 for x in ae_files}
+    while True:
+
+        # we only break once all items are added - in other words
+        #   when the event tracker is all -1
+        if all([x < 0 for x in vicinal_event_tracker.values()]):
+            break
+
+        # We iterate through each dict, and if we can add it, then we do so
+        #  and check if it has reached the end.
+        earliest_vicinal_event_time = None
+        earliest_vicinal_event_key = None
+        earliest_tracked_index = None
+        for ae_key in vicinal_event_tracker:
+            current_tracked_index = vicinal_event_tracker[ae_key]
+            if current_tracked_index == -1:
+                continue  # skip this if it is completed.
+            current_tracked_time = vicinal_event_dict[ae_key][current_tracked_index][0]["time"]
+
+            if not earliest_vicinal_event_time:  # If this is empty, fill it with the event
+                earliest_vicinal_event_time = current_tracked_time
+                earliest_vicinal_event_key = ae_key
+            elif current_tracked_time < earliest_vicinal_event_time:
+                earliest_vicinal_event_time = current_tracked_time
+                earliest_vicinal_event_key = ae_key
+
+        # Now, make sure to add the current vicinal event
+        index_of_interest = vicinal_event_tracker[earliest_vicinal_event_key]
+        vicinal_event_sequence.append(vicinal_event_dict[earliest_vicinal_event_key][index_of_interest])
+        vicinal_event_tracker[earliest_vicinal_event_key] += 1
+        # If we have added everything, set the tracker to -1
+        if vicinal_event_tracker[earliest_vicinal_event_key] >= len(vicinal_event_dict[earliest_vicinal_event_key]):
+            vicinal_event_tracker[earliest_vicinal_event_key] = -1
+        
+
+    return vicinal_event_sequence
+
 
 
 
