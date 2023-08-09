@@ -176,6 +176,13 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir):
             
 
 
+
+    ######
+    # PART 1.5: Decide which AEs still need to be confirmed.
+    #   This also includes AEs which did not occur on time
+    ######
+
+
     print(known_aes)
     asdf
 
