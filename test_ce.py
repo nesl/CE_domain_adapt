@@ -1,4 +1,4 @@
-from LanguageCE.ce_builder import sensor_event_stream, watchbox, \
+from ce_builder import sensor_event_stream, watchbox, \
     complexEvent, Event, OR, AND, GEN_PERMUTE, SEQUENCE_TIMED, SET_TIMED, HOLDS, SET, SEQUENCE
 import time
 import os
@@ -40,7 +40,7 @@ def build_ce1(class_mappings):
     ce1 = complexEvent(class_mappings)
     ce_structure = []
     # Set up our watchboxes
-    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[200,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
+    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[1,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
     ce1.addWatchbox(name="bridgewatchbox1", region_id='2', positions=[213,274,772,772], classes=['rec_vehicle'], watchbox_id=1)
     ce1.addWatchbox(name="bridgewatchbox2", region_id='2', positions=[816,366,1200,725], classes=['rec_vehicle'], watchbox_id=2)
     ce1.addWatchbox(name="bridgewatchbox3", region_id='2', positions=[1294,290,1881,765], classes=['rec_vehicle'], watchbox_id=3)

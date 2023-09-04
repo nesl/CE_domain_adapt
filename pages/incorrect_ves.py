@@ -1,9 +1,10 @@
 import streamlit as st
-from utils import get_image_for_wb_state, get_class_grouping, get_name_from_index
+from utils import get_image_for_event, get_class_grouping, get_name_from_index
 import json
 
 from streamlit_extras.switch_page_button import switch_page
-from domain_adapt import find_closest_aes, save_image, match_and_add_ves, verify_aes
+from domain_adapt import find_closest_aes, save_image, \
+    match_and_add_ves, verify_ve_intervals, get_tracking_info, save_track_data_to_label
 
 # This is how we hide the sidebar navigation
 st.set_page_config(initial_sidebar_state="collapsed")
@@ -40,11 +41,15 @@ unconfirmed_vicinal_events = st.session_state["unconfirmed_vicinal_events"]
 ce_obj = st.session_state["ce_obj"]
 detected_time = st.session_state["detected_time"]
 class_mappings = st.session_state["class_mappings"]
+ae_statuses = find_closest_aes(st.session_state["confirmed_vicinal_events"], ce_obj, detected_time)
+st.session_state["ae_statuses"] = ae_statuses
+confirmed_vicinal_events = st.session_state["confirmed_vicinal_events"]
 video_dir = st.session_state["video_dir"]
+wb_data = st.session_state["wb_data"]
 
 # Get the events we need to verify
-events_to_verify = verify_aes(unconfirmed_vicinal_events, ce_obj, detected_time)
-
+events_to_verify = verify_ve_intervals(ae_statuses, detected_time, \
+        unconfirmed_vicinal_events, confirmed_vicinal_events)
 
 # Keep track of which page we are on
 if "page" not in st.session_state:
@@ -52,9 +57,9 @@ if "page" not in st.session_state:
 def nextpage():
 
     if st.session_state.page >= len(events_to_verify)-1:
-        ae_statuses = find_closest_aes(st.session_state["confirmed_vicinal_events"], ce_obj, detected_time)
-        st.session_state["ae_statuses"] = ae_statuses
-        switch_page("incorrect_ves")
+        track_data = get_tracking_info(st.session_state["confirmed_vicinal_events"])
+        save_track_data_to_label(track_data, st.session_state["ae_files"], video_dir)
+        switch_page("video_review")
     else: 
         st.session_state.page += 1
 
@@ -67,14 +72,14 @@ def review(): switch_page("review")
 display_placeholder = st.empty()
 if st.button("Yes, it is correct"):
 
-    # This is correct, so move on but first add to our confiremd vicinal events
-    # Get the time and watchbox name
-    event_wb_name = st.session_state["wb_query"][1][0]
-    event_time = st.session_state["wb_query"][1][1]
-    # WE ALLOW THE USER TO CORRECT IT HERE, WHICH CHANGES THE WB_QUERY
-    #  And creates a new entry for additional sampling
-    confirmed_vicinal_events = match_and_add_ves(unconfirmed_vicinal_events, st.session_state["confirmed_vicinal_events"],\
-            event_wb_name, event_time)
+    wb_name = st.session_state["wb_query"][2]
+    wb_time = st.session_state["wb_query"][0]
+
+    # Every time we correct something, we need to redo the confirmed vicinal events
+    # Use the match and add ves...
+    confirmed_vicinal_events = match_and_add_ves(unconfirmed_vicinal_events, confirmed_vicinal_events,\
+        wb_name, wb_time)
+
     st.session_state["confirmed_vicinal_events"] = confirmed_vicinal_events
 
     nextpage()
@@ -93,13 +98,13 @@ with display_placeholder.container():
     wb_query = events_to_verify[st.session_state.page]
     st.session_state["wb_query"] = wb_query
 
-    img, comp = get_image_for_wb_state(wb_query, video_dir, ce_obj.watchboxes, class_mappings)
+    img, objects = get_image_for_event(wb_query, video_dir, wb_data)
     # Show image here...
     # save_image("results/x.jpg", img)
     img_display = st.image(img)
 
     st.subheader('Are the following claims correct?')
-    class_groups = get_class_grouping(comp)
+    class_groups = get_class_grouping(objects)
 
     for class_key in class_groups.keys():
         st.write("There are {x} objects of type {y} within the red highlighted area.".format(\
@@ -108,37 +113,10 @@ with display_placeholder.container():
         st.write("There are no objects within the red highlighted area.")
 
 
-    # display_placeholder.empty()
-
-    # Get user input here
-    # user_label = input()
-    # if user_label == "correct":
-        
     
-    
-
-
-    # event_data = events_to_check[st.session_state.page]
-    # # Start getting images and object classes
-    # img, obj_classes = get_image_for_event(event_data[1][0], video_dir, wb_data)
-
-    # st.write("event name: {x} ".format(x=event_data[0]))
-
-    # img_display = st.image(img)
-
-    # # The textbox should describe grouping of classes
-    # st.subheader('Are the following claims correct?')
-    # class_groups = get_class_grouping(obj_classes)
-
-    # for class_key in class_groups.keys():
-    #     st.write("There are {x} objects of type {y} within the red highlighted area.".format(x=class_groups[class_key], y=get_name_from_index(class_mappings, class_key)) )
-    
-    
-        # display_placeholder.empty()
-
-# Set up image display
-# img_display = st.image()
-
-
+    # After everything is done
+    # track_data = get_tracking_info(confirmed_vicinal_events)
+    # save_track_data_to_label(track_data, ae_files, video_dir)
+    # save_relevant_track_images("data/training", video_dir, "da_confirmed.json")
 
 

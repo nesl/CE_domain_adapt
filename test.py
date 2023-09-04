@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+from domain_adapt import initialize_labelling_data, grab_aes
+from test_ce import build_ce1
+
 from streamlit_extras.switch_page_button import switch_page
 
 # This is how we hide the sidebar navigation
@@ -17,9 +20,38 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Here, we need to initialize a bunch of data
+
+result_path = "data/ce_output.txt"
+# AE FILES MUST BE SORTED IN ORDER OF CAM ID
+ae_files = ["data/ae_cam0.txt", "data/ae_cam1.txt", "data/ae_cam2.txt"]
+detected_time = 18000
+video_dir = "data"
+class_mappings = {"rec_vehicle": 1, "tank": 0}
+
+# Get the CE we are interested in
+ce_obj, ce_structure = build_ce1(class_mappings)
 
 
+st.session_state["result_path"] = result_path
+st.session_state["ae_files"] = ae_files
+st.session_state["detected_time"] = detected_time
+st.session_state["video_dir"] = video_dir
+st.session_state["class_mappings"] = class_mappings
+st.session_state["ce_obj"] = ce_obj
 
+# First, initialize data before we move forward
+relevant_aes, ae_programs, wb_data = \
+    initialize_labelling_data(result_path, ae_files, detected_time)
+st.session_state["relevant_aes"] = relevant_aes
+st.session_state["ae_programs"] = ae_programs
+st.session_state["wb_data"] = wb_data
+
+# Then, get all the AEs we need to check
+unconfirmed_vicinal_events, search_ae_data = grab_aes(relevant_aes, ae_programs, wb_data)
+st.session_state["unconfirmed_vicinal_events"] = unconfirmed_vicinal_events
+st.session_state["search_ae_data"] = search_ae_data
+st.session_state["confirmed_vicinal_events"] = {}
 
 
 
@@ -27,45 +59,30 @@ st.markdown(
 
 st.title('Preface/Briefing Page')
 
+# Basically we need 3 pages:
+#   One for confirming vicinal events
+#     with a button for 'needs to be edited'
+#   Another for scrolling through a video
+#     and naming the bounds, and a button for 'needs to be edited'
+#       based on which events must still be annotated.
+#   Once the above two are finalized, we have a list of images to be annotated
+#     and then we have the user annotate that list of images.
+#      This basically generates two things:
+#         - a list of confirmed events (which can be used for training)
+#         - a list of user annotations (which are combined with track data)
+
 if st.button('Determing Incorrect Events'):
     switch_page("incorrect_events")
-if st.button('Determing Correct Times of Detected Events'):
-    switch_page("time_constraints")
+if st.button('Determing Incorrect Events2'):
+    switch_page("incorrect_ves")
+if st.button('Video checker'):
+    switch_page("video_review")
+if st.button('Image annotations'):
+    switch_page("image_label")
 
 
-# DATE_COLUMN = 'date/time'
-# DATA_URL = ('https://s3-us-west-2.amazonaws.com/'
-#          'streamlit-demo-data/uber-raw-data-sep14.csv.gz')
-
-# @st.cache_data
-# def load_data(nrows):
-#     data = pd.read_csv(DATA_URL, nrows=nrows)
-#     lowercase = lambda x: str(x).lower()
-#     data.rename(lowercase, axis='columns', inplace=True)
-#     data[DATE_COLUMN] = pd.to_datetime(data[DATE_COLUMN])
-#     return data
 
 
-# # Create a text element and let the reader know the data is loading.
-# data_load_state = st.text('Loading data...')
-# # Load 10,000 rows of data into the dataframe.
-# data = load_data(10000)
-# # Notify the reader that the data was successfully loaded.
-# data_load_state.text("Done! (using st.cache_data)")
-
-# if st.checkbox('Show raw data'):
-#     st.subheader('Raw data')
-#     st.write(data)
-
-# st.subheader('Number of pickups by hour')
-
-# hist_values = np.histogram(
-#     data[DATE_COLUMN].dt.hour, bins=24, range=(0,24))[0]
-
-# st.bar_chart(hist_values)
-
-# hour_to_filter = st.slider('hour', 0, 23, 17)  # min: 0h, max: 23h, default: 17h
-
-# filtered_data = data[data[DATE_COLUMN].dt.hour == hour_to_filter]
-# st.subheader(f'Map of all pickups at {hour_to_filter}:00')
-# st.map(filtered_data)
+# Todos:
+#  Whenever a user selects something as incorrect, it needs to go
+#   to the annotation step

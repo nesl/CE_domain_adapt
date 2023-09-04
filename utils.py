@@ -1,6 +1,7 @@
 import os
 import cv2
 from tqdm import tqdm
+import json
 
 # Parse the CE results for a particular take.
 #  Example ce_file: "results/CE1_smoke_50_True_True_True/364/ce_output.txt"
@@ -228,12 +229,13 @@ def parse_ae(ae_text, index):
 
     # Get the model and size
     model = ae_text_of_interest.split("model='")[1].split("')")[0]
+    operation = ae_text_of_interest.split(".size")[1].split(" ")[0]
     comp_size = ae_text_of_interest.split(".size")[1][2:].split(" ")[0]
     
     # Make sure comp_size is all numeric
     comp_size = ''.join([x for x in comp_size if x.isnumeric()])
     
-    return model, comp_size
+    return model, comp_size, operation
 
         
 
@@ -252,6 +254,9 @@ def read_next_image(vidcap):
 
     return image_to_draw
 
+def convert_from_bgr(img):
+    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
 
 def get_wb_coords(wb_data, event_to_check):
     # First, get the watchbox coordinates
@@ -260,6 +265,7 @@ def get_wb_coords(wb_data, event_to_check):
 
 # Get the watchbox coordinates and draw it over the image
 def draw_wb_coords(image_to_draw, wb_coords):
+    
     # Draw the watchbox
     cv2.rectangle(image_to_draw, (wb_coords[0], wb_coords[1]), \
         (wb_coords[2], wb_coords[3]), (0, 0, 255), 3)
@@ -270,9 +276,68 @@ def draw_wb_coords(image_to_draw, wb_coords):
 def save_image(filepath, img):
     cv2.imwrite(filepath, img)
 
+
+# We also need to grab images at a given frame index
+#  (2163, 'cam0', 'bridgewatchbox5', {36: {'bbox_data': [305.64, 531.76, 333.87, 543.84], 'prediction': 1}, 37: {'bbox_data': [42.21, 551.0, 71.59, 565.2], 'prediction': 1}, 38: {'bbox_data': [224.01, 521.07, 251.96, 533.43], 'prediction': 1}, 40: {'bbox_data': [5.59, 524.0, 35.61, 537.0], 'prediction': 1}})
+def get_image_for_wb_state(wb_state, video_dir, watchboxes, class_mappings):
+
+    cam_name = wb_state[1][4]
+
+    # First, get the full video filepaths
+    video_filepaths = [x for x in os.listdir(video_dir) if ".mp4" in x]
+    video_filepaths = [os.path.join(video_dir, x) for x in video_filepaths]
+
+    # Open the correct video, and move to the frame.
+    vpath = [x for x in video_filepaths if cam_name in x][0]
+    frame_of_interest = wb_state[1][1]
+
+    #  Start reading data 
+    vidcap = cv2.VideoCapture(vpath)
+    success,image = vidcap.read()
+    vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_of_interest)
+    _, image_to_draw = vidcap.read()
+    # while success:
+    #     success,image = vidcap.read()
+    #     if count == frame_of_interest:
+    #         image_to_draw = image
+    #         break
+    #     count += 1
+
+    # Now we draw on the image.
+
+    # Get the wb coords and draw the image
+    wb_coords = watchboxes[wb_state[1][0]].positions
+    image_to_draw = draw_wb_coords(image_to_draw, wb_coords)
+
+    # Now, draw all the objects
+    obj_classes = {}
+    for obj_track in wb_state[1][2]:
+
+        # First, get the class of interest
+        class_of_interest = class_mappings[wb_state[0][0]]
+        bbox_data = wb_state[1][2][obj_track]
+        bbox_data = [int(x) for x in bbox_data]
+        obj_classes[obj_track] = wb_state[1][3][obj_track]
+
+        # Draw the bounding boxes
+        cv2.rectangle(image_to_draw,  (bbox_data[0], bbox_data[1]), \
+            (bbox_data[2], bbox_data[3]), (0, 255, 255), 1)
+        fontScale = 0.5
+        color = (255, 153, 255)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        thickness = 2
+        image_to_draw = cv2.putText(image_to_draw, str(obj_track), (bbox_data[0], bbox_data[1]), font, 
+                        fontScale, color, thickness, cv2.LINE_AA)
+
+    # Convert from bgr to rgb
+    image_to_draw = cv2.cvtColor(image_to_draw, cv2.COLOR_BGR2RGB)
+
+    return image_to_draw, obj_classes
+
 # We also need to grab images at a given frame index
 #  (2163, 'cam0', 'bridgewatchbox5', {36: {'bbox_data': [305.64, 531.76, 333.87, 543.84], 'prediction': 1}, 37: {'bbox_data': [42.21, 551.0, 71.59, 565.2], 'prediction': 1}, 38: {'bbox_data': [224.01, 521.07, 251.96, 533.43], 'prediction': 1}, 40: {'bbox_data': [5.59, 524.0, 35.61, 537.0], 'prediction': 1}})
 def get_image_for_event(event_to_check, video_dir, wb_data):
+
 
     # First, get the full video filepaths
     video_filepaths = [x for x in os.listdir(video_dir) if ".mp4" in x]
@@ -322,6 +387,61 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
 
     return image_to_draw, obj_classes
         
+
+# Save all images for the given cam/frame ids
+def save_relevant_track_images(save_dir, video_dir, track_json_file):
+
+    # first, if the save dir doesn't exist then make it
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
+    # Get the corresponding video files
+    video_filepaths = [x for x in os.listdir(video_dir) if ".mp4" in x]
+    video_filepaths = [os.path.join(video_dir, x) for x in video_filepaths]
+
+    
+    # Now, open the track json file
+    track_data = None
+    track_json_filepath = video_dir + "/" + track_json_file
+    with open(track_json_filepath, "r") as tf:
+        track_data = json.load(tf)
+    
+    # Iterate through every camera in the track json file
+    for cam_name in track_data.keys():
+
+        vf_of_interest = [x for x in video_filepaths if cam_name in x][0]
+        #  Start reading data 
+        vidcap = cv2.VideoCapture(vf_of_interest)
+        success,image = vidcap.read()
+
+        # Now, we go through every entry of this cam
+        #  And save the corresponding image
+        for entry in tqdm(track_data[cam_name]):
+            
+            frame_index = entry["frame_index"]
+            vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_index)
+            _, img_to_save = vidcap.read()
+
+            # image filename
+            img_filename = track_json_file.split(".json")[0] + "_" + \
+                cam_name + "_frame_" + str(frame_index) + ".jpg"
+            filepath = save_dir + "/" + img_filename
+
+            # Now add the bboxes for debugging
+            # for id in entry["tracks"]:
+                
+            #     bbox_data = entry["tracks"][id]["bbox_data"]
+            #     bbox_data = [int(x) for x in bbox_data]
+            #     print(bbox_data)
+            #      # Draw the bounding boxes
+            #     cv2.rectangle(img_to_save,  (bbox_data[0], bbox_data[1]), \
+            #         (bbox_data[2], bbox_data[3]), (0, 255, 255), 1)
+
+
+            save_image(filepath, img_to_save)
+
+
+
 
 # Get class composition
 def get_class_grouping(obj_classes):
