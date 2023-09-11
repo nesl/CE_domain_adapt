@@ -2,6 +2,8 @@ import streamlit as st
 import os
 from pages.streamlit_img_label import st_img_label
 from pages.streamlit_img_label.manage import ImageManager, ImageDirManager
+from utils import add_metrics_to_json_file
+import time
 
 def run(img_dir, labels):
     st.set_option("deprecation.showfileUploaderEncoding", False)
@@ -73,6 +75,7 @@ def run(img_dir, labels):
     img_file_name = idm.get_image(st.session_state["image_index"])
     img_path = os.path.join(img_dir, img_file_name)
     im = ImageManager(img_path)
+    st.session_state["st"] = time.time()
     img = im.get_img()
     resized_img = im.resizing_img()
     resized_rects = im.get_resized_rects()
@@ -88,6 +91,10 @@ def run(img_dir, labels):
     if rects:
         st.button(label="Save", on_click=annotate)
         preview_imgs = im.init_annotation(rects)
+
+        # First, save the timing
+        add_metrics_to_json_file(st.session_state["timing_metrics_file"], \
+            "annotate_time", time.time() - st.session_state["st"])
 
         for i, prev_img in enumerate(preview_imgs):
             prev_img[0].thumbnail((200, 200))
@@ -110,8 +117,8 @@ if __name__ == "__main__":
     custom_labels = list(custom_labels.keys())
 
     # Images to annotate
-    data_dir = st.session_state["video_dir"]
-    image_dir = os.path.join(data_dir, "to_annotate")
+    annotation_dir = st.session_state["to_annotate_path"]
+    # image_dir = os.path.join(data_dir, "to_annotate")
 
 
-    run(image_dir, custom_labels)
+    run(annotation_dir, custom_labels)

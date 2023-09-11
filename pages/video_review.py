@@ -5,7 +5,7 @@ import time
 # from utils import get_image_for_frame_index, get_video_and_data, check_missed_events, \
 #     read_next_image, draw_wb_coords, get_wb_coords, parse_ae
 from utils import get_image_for_frame_index, get_video_and_data, \
-    draw_wb_coords, get_class_grouping, save_image, convert_from_bgr
+    draw_wb_coords, get_class_grouping, save_image, convert_from_bgr, add_metrics_to_json_file
 from domain_adapt import find_closest_aes, get_time_bounds, reorganize_video_search
 
 
@@ -62,15 +62,19 @@ segments_to_annotate = reorganize_video_search(search_ae_data, missing_intervals
 
 
 # Keep track of which page we are on
-if "page" not in st.session_state:
-    st.session_state.page = 0
+if "page3" not in st.session_state:
+    st.session_state.page3 = 0
 def nextpage():
 
-    if st.session_state.page >= len(segments_to_annotate)-1:
+    # First, save the timing
+    add_metrics_to_json_file(st.session_state["timing_metrics_file"], \
+        "vreview_time", time.time() - st.session_state["st"])
+
+    if st.session_state.page3 >= len(segments_to_annotate)-1:
         switch_page("image_label")
     else: 
-        st.session_state.page += 1
-def restart(): st.session_state.page = 0
+        st.session_state.page3 += 1
+def restart(): st.session_state.page3 = 0
 def review(): switch_page("review")
 
 
@@ -78,9 +82,7 @@ def review(): switch_page("review")
 if st.button("I found the event!"):
 
     # When the event is found, we save the current image to a file
-    annotation_dir = os.path.join(video_dir, "to_annotate")
-    if not os.path.exists(annotation_dir):
-        os.mkdir(annotation_dir)
+    annotation_dir = st.session_state["to_annotate_path"] # os.path.join(video_dir, "to_annotate")
     num_current_files = len(os.listdir(annotation_dir))
     save_filepath = os.path.join(annotation_dir, str(num_current_files)+".jpg")
     
@@ -96,7 +98,7 @@ if st.button("I can't find this!"):
 
 
 # Stuff to annotate
-current_segment = segments_to_annotate[st.session_state.page]
+current_segment = segments_to_annotate[st.session_state.page3]
 #  (video_filepath, time_interval, watchbox, composition)
 video_path = current_segment[0]
 time_interval = current_segment[1]
@@ -105,7 +107,7 @@ comp = current_segment[3]
 
 # Get the total number of frames
 total_frames, vidcap = get_video_and_data(video_path)
-
+st.session_state["st"] = time.time()
 # Option for playing video
 value1 = st.slider('Starting Time Index', time_interval[0], time_interval[1], value=time_interval[0], key="vslider")
 img1 = get_image_for_frame_index(vidcap, value1)

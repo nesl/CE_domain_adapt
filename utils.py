@@ -33,6 +33,72 @@ def parse_ce_results_for_file(ce_file):
     return atomic_events, watchbox_information, event_data
         
 
+# Add data to json file
+#  Format of file:
+#   {
+#       "review_time": [5, ...]    # Measured in time.time
+#       "vreview_time": [10, ...]
+#       "annotate_time": [7, ...]
+#       "total_time": [60]
+# }
+def add_metrics_to_json_file(metrics_filepath, type, time):
+
+    data = None
+    # Open and append
+    with open(metrics_filepath, "r") as f:
+        data = json.load(f)
+
+    if type not in ["review_time", "vreview_time", "annotate_time", "total_time"]:
+        print("NOT ALLOWED TYPE")
+        asdf
+    
+    # Now, go to the type:
+    if type not in data:
+        data[type] = [time]
+    else:
+        data[type].append(time)
+    
+    # Now, save the file
+    with open(metrics_filepath, "w") as f:
+        json.dump(data, f)
+
+
+
+
+# Sample and save videos
+def sample_and_save_videos(to_annotate_path, video_dir, subsample_val):
+
+    # Get all the video filepaths
+    video_files = os.listdir(video_dir)
+    video_files = [os.path.join(video_dir, x) for x in video_files]
+    video_files = [x for x in video_files if ".mp4" in x]
+
+    # Iterate through each file
+    for vfilepath in video_files:
+
+        # Open the file and get every subsample_val frame
+        num_frames, vidcap = get_video_and_data(vfilepath)
+
+        # Loop until we're out of video frames
+        for frame_index in tqdm(range(0, num_frames, subsample_val)):
+            # Read in image
+
+            vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_index)
+            ret, image_to_save = vidcap.read()
+
+            # If we have a frame
+            if ret:
+                # if frame_index % subsample_val == 1:
+                image_filename = str(len(os.listdir(to_annotate_path)))+".jpg"
+                save_path = os.path.join(to_annotate_path, image_filename)
+                save_image(save_path, image_to_save)
+            else:
+                break
+
+        # Release video
+        vidcap.release()
+
+
 
 
 # Opens an AE file, and gets the bounding box information for a set of tracks
@@ -295,7 +361,7 @@ def get_image_for_wb_state(wb_state, video_dir, watchboxes, class_mappings):
     vidcap = cv2.VideoCapture(vpath)
     success,image = vidcap.read()
     vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_of_interest)
-    _, image_to_draw = vidcap.read()
+    _, img_out = vidcap.read()
     # while success:
     #     success,image = vidcap.read()
     #     if count == frame_of_interest:
@@ -304,7 +370,7 @@ def get_image_for_wb_state(wb_state, video_dir, watchboxes, class_mappings):
     #     count += 1
 
     # Now we draw on the image.
-
+    image_to_draw = img_out.copy()
     # Get the wb coords and draw the image
     wb_coords = watchboxes[wb_state[1][0]].positions
     image_to_draw = draw_wb_coords(image_to_draw, wb_coords)
@@ -332,7 +398,7 @@ def get_image_for_wb_state(wb_state, video_dir, watchboxes, class_mappings):
     # Convert from bgr to rgb
     image_to_draw = cv2.cvtColor(image_to_draw, cv2.COLOR_BGR2RGB)
 
-    return image_to_draw, obj_classes
+    return image_to_draw, obj_classes, img_out
 
 # We also need to grab images at a given frame index
 #  (2163, 'cam0', 'bridgewatchbox5', {36: {'bbox_data': [305.64, 531.76, 333.87, 543.84], 'prediction': 1}, 37: {'bbox_data': [42.21, 551.0, 71.59, 565.2], 'prediction': 1}, 38: {'bbox_data': [224.01, 521.07, 251.96, 533.43], 'prediction': 1}, 40: {'bbox_data': [5.59, 524.0, 35.61, 537.0], 'prediction': 1}})
@@ -351,7 +417,7 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
     vidcap = cv2.VideoCapture(vpath)
     success,image = vidcap.read()
     vidcap.set(cv2.CAP_PROP_POS_FRAMES,frame_of_interest)
-    _, image_to_draw = vidcap.read()
+    _, img_out = vidcap.read()
     # while success:
     #     success,image = vidcap.read()
     #     if count == frame_of_interest:
@@ -362,6 +428,7 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
     # Now we draw on the image.
 
     # Get the wb coords and draw the image
+    image_to_draw = img_out.copy()
     wb_coords = get_wb_coords(wb_data, event_to_check)
     image_to_draw = draw_wb_coords(image_to_draw, wb_coords)
 
@@ -385,7 +452,7 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
     # Convert from bgr to rgb
     image_to_draw = cv2.cvtColor(image_to_draw, cv2.COLOR_BGR2RGB)
 
-    return image_to_draw, obj_classes
+    return image_to_draw, obj_classes, img_out
         
 
 # Save all images for the given cam/frame ids

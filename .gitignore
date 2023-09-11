@@ -4,3 +4,5 @@ data/da_confirmed.json
 data/training
 results/*
 *.jpg
+to_annotate/*
+annotated/*

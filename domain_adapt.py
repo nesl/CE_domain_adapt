@@ -103,6 +103,65 @@ def get_vicinal_events_within_time(lower_bound, upper_bound, unconfirmed_vicinal
     return vicinal_events_within_range
 
 
+# Get watchbox name from cam and wb id
+def get_wb_name(wb_data, cam_id, wb_id):
+    wb_name = ""
+
+    for wb_key in wb_data.keys():
+        if wb_data[wb_key]["cam_id"] == cam_id and wb_data[wb_key]["watchbox_id"] == wb_id:
+            wb_name = wb_key
+
+    return wb_name
+
+# Get all vicinal events
+def get_all_vicinal_events(ae_files, wb_data):
+
+    # Create the unconfirmed vicinal event dict
+    unconfirmed_vicinal_events = {}
+
+    # print(wb_data)
+
+    # Iterate through each file
+    for ae_filepath in ae_files:
+
+        cam_id = int(ae_filepath.split("ae_cam")[1][0])
+
+        with open(ae_filepath, "r") as f:
+            # Read every line
+            for line in f.readlines():
+                line_data = eval(line)
+                
+                # If there's a vicinal event
+                if line_data["vicinal_events"]:
+                    vicinal_event_data = line_data["vicinal_events"][0]
+
+                    
+                    # Go through each result
+                    for entry in vicinal_event_data["results"]:
+                        # Get the wb name
+                        current_wb_id = entry["watchboxes"][0]
+
+                        frame = line_data["frame_index"]
+                        cam_name = "cam" + str(cam_id)
+                        wb_name = get_wb_name(wb_data, cam_id, current_wb_id)
+                        track_data = line_data["tracks"]
+                        ve_data = (frame, cam_name, wb_name, track_data)
+
+                        # Add to our vicinal events
+                        if wb_name not in unconfirmed_vicinal_events:
+                            unconfirmed_vicinal_events[wb_name] = [ve_data]
+                        else:
+                            unconfirmed_vicinal_events[wb_name].append(ve_data)
+
+    for wb_key in unconfirmed_vicinal_events.keys():
+        # Order the keys
+        # sorted_times = sorted(list(unconfirmed_vicinal_events[wb_key].keys()))
+        # Now sort the vicinal events under each watchbox
+        # unconfirmed_vicinal_events[wb_key] = [unconfirmed_vicinal_events[wb_key][x] for x in sorted_times]
+
+        unconfirmed_vicinal_events[wb_key] = sorted(unconfirmed_vicinal_events[wb_key], key= lambda x : x[0])
+
+    return unconfirmed_vicinal_events
 
 
 
@@ -357,6 +416,8 @@ def verify_aes(unconfirmed_vicinal_events, ce_obj, detected_time):
     events_to_verify = []
 
     ae_statuses = find_closest_aes(unconfirmed_vicinal_events, ce_obj, detected_time)
+    
+    print(ae_statuses)
     confirmed_vicinal_events = {}
     for status in ae_statuses:
         wb_queries = status[3]
@@ -448,6 +509,41 @@ def verify_ve_intervals(ae_statuses, detected_time, \
 #         - a list of confirmed events (which can be used for training)
 #         - a list of user annotations (which are combined with track data)
 #      This is we show part 3, at least for the intervals we missed.
+
+
+
+# Remove redundant elements from list1 given list2
+def remove_reundant_events(event_list1, event_list2):
+
+    result_dict = {}
+    # Iterate through every elements of eventlist1
+    for wb_name in event_list1.keys():
+        current_entry = event_list1[wb_name]
+        # print(wb_name)
+        # print(len(event_list1[wb_name]))
+        for ve in current_entry:
+
+            ve_matched = False
+            # Check if the ve matches in event_list2
+            if wb_name in event_list2.keys():
+                event_list2_times = [x[0] for x in event_list2[wb_name]]
+                if ve[0] in event_list2_times:
+                    ve_matched = True
+            if not ve_matched:  # No match, so add to our result dict
+                if wb_name not in result_dict:
+                    result_dict[wb_name] = [ve]
+                else:
+                    result_dict[wb_name].append(ve)
+    
+    # # Iterate through result_dict
+    # for wb_name in result_dict.keys():
+    #     print(wb_name)
+    #     print(len(result_dict[wb_name]))
+    return result_dict
+
+
+
+
 
 
 # This reorganizes the ae search into a list of
