@@ -40,7 +40,7 @@ def build_ce1(class_mappings):
     ce1 = complexEvent(class_mappings)
     ce_structure = []
     # Set up our watchboxes
-    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[1,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
+    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[200,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
     ce1.addWatchbox(name="bridgewatchbox1", region_id='2', positions=[213,274,772,772], classes=['rec_vehicle'], watchbox_id=1)
     ce1.addWatchbox(name="bridgewatchbox2", region_id='2', positions=[816,366,1200,725], classes=['rec_vehicle'], watchbox_id=2)
     ce1.addWatchbox(name="bridgewatchbox3", region_id='2', positions=[1294,290,1881,765], classes=['rec_vehicle'], watchbox_id=3)
@@ -138,6 +138,98 @@ def build_ce3(class_mappings):
 
     return ce3, ce_structure
 
+
+
+# Build carla ce1
+#  Flash robbery
+def build_carla_ce1(class_mappings):
+
+    ce = complexEvent(class_mappings)
+    ce.addWatchbox(name="storefront", region_id='1', positions=[460, 250, 799, 500], classes=['person'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="crosswalk", region_id='2', positions=[0, 200, 799, 599], classes=['person'], watchbox_id=0, class_mappings=class_mappings)
+
+    
+    pedestrians_cross_street = Event("crosswalk.composition(at=0, model='person').size >= 5")
+    pedestrians_approach_store = Event("storefront.composition(at=0, model='person').size >= 5")
+    ce_structure = ce.addEvents([SEQUENCE_TIMED([pedestrians_cross_street, pedestrians_approach_store], 300)])
+    # ce_structure = ce.addEvents([SEQUENCE([pedestrians_cross_street, pedestrians_approach_store])])
+
+    return ce, ce_structure
+
+# Build carla ce2
+#  Street takeover
+def build_carla_ce2(class_mappings):
+
+    ce = complexEvent(class_mappings)
+    ce.addWatchbox(name="intersection_box1", region_id='0', positions=[0, 200, 799, 599], classes=['person', 'car'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="intersection_box2", region_id='1', positions=[0, 100, 799, 599], classes=['person', 'car'], watchbox_id=0, class_mappings=class_mappings)
+
+    ppl_enter_street = Event("intersection_box1.composition(at=0, model='person').size >= 4")
+    vehicles_show_up = Event("intersection_box1.composition(at=0, model='car').size >= 1")
+    vehicles_show_up2 = Event("intersection_box2.composition(at=0, model='car').size >= 1")
+    # ppl_enter_street2 = Event("intersection_box2.composition(at=0, model='person').size >= 2 and intersection_box1.composition(at=0, model='person').size < 3")
+    ppl_enter_street2 = Event("intersection_box2.composition(at=0, model='person').size >= 1")
+
+
+    ce_structure = ce.addEvents([SEQUENCE([ppl_enter_street, vehicles_show_up, vehicles_show_up2]), ppl_enter_street2])
+    # ce_structure = ce.addEvents([ppl_enter_street, vehicles_show_up, vehicles_show_up2, ppl_enter_street2])
+
+
+    return ce, ce_structure
+
+# Build carla ce3
+#  Package theft
+def build_carla_ce3(class_mappings):
+
+    ce = complexEvent(class_mappings)
+    ce.addWatchbox(name="sidewalk1", region_id='0', positions=[300, 200, 470, 400], classes=['person', 'package'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="sidewalk2", region_id='1', positions=[0, 200, 500, 599], classes=['person'], watchbox_id=0, class_mappings=class_mappings)
+
+    delivery_person_present = Event("sidewalk1.composition(at=0, model='person').size >= 1")
+    package_dropped_off = Event("sidewalk1.composition(at=0, model='package').size ==1")
+    delivery_person_leaves = Event("sidewalk1.composition(at=0, model='person').size == 0")
+    package_stolen = Event("sidewalk1.composition(at=0, model='package').size ==0 and sidewalk1.composition(at=0, model='person').size > 0")
+    thief_exits = Event("sidewalk2.composition(at=0, model='person').size == 1")
+
+    # ce_structure = ce.addEvents([SEQUENCE([delivery_person_present, package_dropped_off, delivery_person_leaves, package_stolen, thief_exits])])
+    ce_structure = ce.addEvents([delivery_person_present, package_dropped_off, delivery_person_leaves, package_stolen, thief_exits])
+
+
+    return ce, ce_structure
+
+# Build carla ce4
+#   Package terrorist attack
+def build_carla_ce4(class_mappings):
+
+    ce = complexEvent(class_mappings)
+    ce.addWatchbox(name="bus", region_id='0', positions=[400, 300, 799, 599], classes=['person', 'package'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="atm", region_id='1', positions=[350, 200, 550, 500], classes=['person', 'package'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="tree", region_id='2', positions=[500, 50, 799, 250], classes=['person', 'package'], watchbox_id=0, class_mappings=class_mappings)
+
+    package_dropped_bus = Event("bus.composition(at=1, model='package').size == 0 and bus.composition(at=0, model='package').size > 0")
+    package_dropped_atm = Event("atm.composition(at=1, model='package').size == 0 and atm.composition(at=0, model='package').size > 0")
+    package_dropped_tree = Event("tree.composition(at=1, model='package').size == 0 and tree.composition(at=0, model='package').size > 0")
+
+    ce_structure = ce.addEvents([SET_TIMED([package_dropped_bus, package_dropped_atm, package_dropped_tree], 5)])
+
+    return ce, ce_structure 
+
+# Build carla ce5
+#   Car hit and run
+def build_carla_ce5(class_mappings):
+
+    ce = complexEvent(class_mappings)
+    ce.addWatchbox(name="street1", region_id='0', positions=[300, 300, 799, 599], classes=['car'], watchbox_id=0, class_mappings=class_mappings)
+    ce.addWatchbox(name="street2", region_id='1', positions=[300, 200, 799, 599], classes=['car'], watchbox_id=0, class_mappings=class_mappings)
+
+    car_enters_then_exits = Event("street1.composition(at=1, model='car').size > 1")
+    car_enters_again = Event("street1.composition(at=0, model='car').size > 1")
+    car_leaves = Event("street2.composition(at=0, model='car').size > 1")
+
+    # ce_structure = ce.addEvents([car_enters_then_exits, SEQUENCE_TIMED([car_enters_again, car_leaves], 600)])
+    ce_structure = ce.addEvents([car_enters_then_exits, car_enters_again, car_leaves])
+
+    return ce, ce_structure
 
 # import argparse
 

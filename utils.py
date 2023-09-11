@@ -43,14 +43,19 @@ def parse_ce_results_for_file(ce_file):
 # }
 def add_metrics_to_json_file(metrics_filepath, type, time):
 
-    data = None
-    # Open and append
-    with open(metrics_filepath, "r") as f:
-        data = json.load(f)
+    # If this filepath doesn't exist yet, make it
+    data = {}
+    if not os.path.exists(metrics_filepath):
+        with open(metrics_filepath, 'w') as fp:
+            pass
+    else:
+        # Open and append
+        with open(metrics_filepath, "r") as f:
+            data = json.load(f)
 
-    if type not in ["review_time", "vreview_time", "annotate_time", "total_time"]:
-        print("NOT ALLOWED TYPE")
-        asdf
+        if type not in ["review_time", "vreview_time", "annotate_time", "total_time"]:
+            print("NOT ALLOWED TYPE")
+            asdf
     
     # Now, go to the type:
     if type not in data:
@@ -68,6 +73,10 @@ def add_metrics_to_json_file(metrics_filepath, type, time):
 # Sample and save videos
 def sample_and_save_videos(to_annotate_path, video_dir, subsample_val):
 
+    # If there's already stuff here, then skip
+    if os.listdir(to_annotate_path):
+        return
+
     # Get all the video filepaths
     video_files = os.listdir(video_dir)
     video_files = [os.path.join(video_dir, x) for x in video_files]
@@ -78,6 +87,8 @@ def sample_and_save_videos(to_annotate_path, video_dir, subsample_val):
 
         # Open the file and get every subsample_val frame
         num_frames, vidcap = get_video_and_data(vfilepath)
+
+        print(num_frames)
 
         # Loop until we're out of video frames
         for frame_index in tqdm(range(0, num_frames, subsample_val)):
@@ -260,6 +271,14 @@ def get_video_and_data(video_path):
     vidcap = cv2.VideoCapture(video_path)
     frames = vidcap.get(cv2.CAP_PROP_FRAME_COUNT)
     return int(frames), vidcap
+
+# Get the total number of frames in this video
+def get_video_total_frames(video_path):
+
+    vidcap = cv2.VideoCapture(video_path)
+    frames = vidcap.get(cv2.CAP_PROP_FRAME_COUNT)
+    vidcap.release()
+    return int(frames)
 
 
 # Add a watchbox to a video

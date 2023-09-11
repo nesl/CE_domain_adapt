@@ -4,16 +4,45 @@ from pages.streamlit_img_label import st_img_label
 from pages.streamlit_img_label.manage import ImageManager, ImageDirManager
 from utils import add_metrics_to_json_file
 import time
+from streamlit_extras.switch_page_button import switch_page
+
+# This is how we hide the sidebar navigation
+st.set_page_config(initial_sidebar_state="expanded")
+st.markdown(
+    """
+<style>
+    [data-testid="collapsedControl"] {
+        display: True
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 def run(img_dir, labels):
+    
     st.set_option("deprecation.showfileUploaderEncoding", False)
+    # print("Here")
     idm = ImageDirManager(img_dir)
 
-    if "files" not in st.session_state:
+    # Check if we need to refresh
+    if "labelled_dirs" not in st.session_state:
+        st.session_state["labelled_dirs"] = []
+
+    if "files" not in st.session_state and img_dir not in st.session_state["labelled_dirs"] :
+        # print("restarting...")
         st.session_state["files"] = idm.get_all_files()
         st.session_state["annotation_files"] = idm.get_exist_annotation_files()
         st.session_state["image_index"] = 0
+        st.session_state["labelled_dirs"].append(img_dir)
+    elif img_dir not in st.session_state["labelled_dirs"]:
+        # print("restarting...")
+        st.session_state["files"] = idm.get_all_files()
+        st.session_state["annotation_files"] = idm.get_exist_annotation_files()
+        st.session_state["image_index"] = 0
+        st.session_state["labelled_dirs"].append(img_dir)
     else:
+        # print("OTHERWISE...")
         idm.set_all_files(st.session_state["files"])
         idm.set_annotation_files(st.session_state["annotation_files"])
     
@@ -22,14 +51,23 @@ def run(img_dir, labels):
         st.session_state["annotation_files"] = idm.get_exist_annotation_files()
         st.session_state["image_index"] = 0
 
+    def switching_beginning():
+        switch_page("test")
+
     def next_image():
+        # print("next")
+        st.session_state["st"] = time.time()
         image_index = st.session_state["image_index"]
         if image_index < len(st.session_state["files"]) - 1:
             st.session_state["image_index"] += 1
         else:
-            st.warning('This is the last image.')
+            st.warning('This is the last image. Click below to go back to beginning.')
+            # This is the last image, so go back to the beginning
+                   
+
 
     def previous_image():
+        st.session_state["st"] = time.time()
         image_index = st.session_state["image_index"]
         if image_index > 0:
             st.session_state["image_index"] -= 1
@@ -37,6 +75,8 @@ def run(img_dir, labels):
             st.warning('This is the first image.')
 
     def next_annotate_file():
+        # print("next")
+        st.session_state["st"] = time.time()
         image_index = st.session_state["image_index"]
         next_image_index = idm.get_next_annotation_image(image_index)
         if next_image_index:
@@ -46,6 +86,8 @@ def run(img_dir, labels):
             next_image()
 
     def go_to_image():
+        # print("go")
+        st.session_state["st"] = time.time()
         file_index = st.session_state["files"].index(st.session_state["file"])
         st.session_state["image_index"] = file_index
 
@@ -55,6 +97,9 @@ def run(img_dir, labels):
     st.sidebar.write("Total files:", n_files)
     st.sidebar.write("Total annotate files:", n_annotate_files)
     st.sidebar.write("Remaining files:", n_files - n_annotate_files)
+
+    if st.button("Back to beginning..."):
+        switch_page("test")     
 
     st.sidebar.selectbox(
         "Files",
@@ -75,13 +120,18 @@ def run(img_dir, labels):
     img_file_name = idm.get_image(st.session_state["image_index"])
     img_path = os.path.join(img_dir, img_file_name)
     im = ImageManager(img_path)
-    st.session_state["st"] = time.time()
+    
     img = im.get_img()
     resized_img = im.resizing_img()
     resized_rects = im.get_resized_rects()
     rects = st_img_label(resized_img, box_color="red", rects=resized_rects)
 
     def annotate():
+
+        # First, save the timing
+        add_metrics_to_json_file(st.session_state["timing_metrics_file"], \
+            "annotate_time", time.time() - st.session_state["st"])
+
         im.save_annotation()
         image_annotate_file_name = img_file_name.split(".")[0] + ".xml"
         if image_annotate_file_name not in st.session_state["annotation_files"]:
@@ -92,9 +142,7 @@ def run(img_dir, labels):
         st.button(label="Save", on_click=annotate)
         preview_imgs = im.init_annotation(rects)
 
-        # First, save the timing
-        add_metrics_to_json_file(st.session_state["timing_metrics_file"], \
-            "annotate_time", time.time() - st.session_state["st"])
+        
 
         for i, prev_img in enumerate(preview_imgs):
             prev_img[0].thumbnail((200, 200))
@@ -112,6 +160,12 @@ def run(img_dir, labels):
                 im.set_annotation(i, select_label)
 
 if __name__ == "__main__":
+
+
+    if "st" not in st.session_state:
+        # print("start")
+        st.session_state["st"] = time.time()
+
     # custom_labels = ["", "dog", "cat"]
     custom_labels = st.session_state["class_mappings"]
     custom_labels = list(custom_labels.keys())

@@ -6,8 +6,9 @@ import time
 
 from domain_adapt import initialize_labelling_data, grab_aes, \
     get_all_vicinal_events, remove_reundant_events
-from utils import sample_and_save_videos, add_metrics_to_json_file
-from test_ce import build_ce1
+from utils import sample_and_save_videos, add_metrics_to_json_file, get_video_total_frames
+from test_ce import build_ce1, build_ce2, build_ce3, \
+     build_carla_ce1, build_carla_ce2, build_carla_ce3, build_carla_ce4, build_carla_ce5
 
 from streamlit_extras.switch_page_button import switch_page
 
@@ -24,12 +25,54 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Here, we need to initialize a bunch of data
 
-result_path = "data/ce_output.txt"
-parent_name = "out"  # Change this to whatever the ce/iteration folder is
-annotation_type = "baseline" # either 'baseline' or 'adapt'
-subsample_frames = 500 # Every 50 frames, or roughly 5 seconds
+video_parent_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/carla_videos_pre_2"
+ae_result_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/jetson_aes/ae_results_pre_2_train"
+training_dir_list = "training_dirs.txt"
+
+annotation_type = "adapt" # either 'baseline' or 'adapt'
+subsample_frames = 50 # Every 50 frames, or roughly 5 seconds
+ce_type = "carla"
+
+
+# First, load the directories
+if "experiment_names" not in st.session_state:
+    
+    # Obtain all ce dirs for training
+    experiment_names = []
+    with open(training_dir_list, "r") as f:
+        experiment_names = eval(f.read())
+    
+    # Now, attach them to the video and ae folders
+    video_folders = [os.path.join(video_parent_folder, x) for x in experiment_names]
+    ae_folders = [os.path.join(ae_result_folder, x) for x in experiment_names]
+
+    # Save them
+    st.session_state["ae_parent_paths"] = ae_folders
+    st.session_state["video_parent_paths"] = video_folders
+    st.session_state["experiment_names"] = experiment_names
+    st.session_state["exp_id"] = 0
+else:
+    st.session_state["exp_id"] += 1
+
+# Now, get all the required data
+current_exp_id = st.session_state["exp_id"]
+current_ae_folder_path = st.session_state["ae_parent_paths"][current_exp_id]
+result_path = os.listdir(current_ae_folder_path)
+result_path = [os.path.join(current_ae_folder_path, x) \
+    for x in result_path if "ce_output" in x][0]
+ae_files = os.listdir(current_ae_folder_path)
+ae_files = [os.path.join(current_ae_folder_path, x) \
+    for x in ae_files if "ae_cam" in x]
+
+video_dir = st.session_state["video_parent_paths"][current_exp_id]
+parent_name = st.session_state["experiment_names"][current_exp_id]
+print(parent_name)
+
+# Here, we need to initialize a bunch of data
+# result_path = "data/ce_output.txt"
+# parent_name = "out"  # Change this to whatever the ce/iteration folder is
+
 
 saved_annotations_path = os.path.join("annotated", annotation_type, parent_name)
 to_annotate_path = os.path.join("to_annotate", annotation_type, parent_name)
@@ -49,18 +92,50 @@ if not os.path.exists(to_annotate_path):
 
 
 # AE FILES MUST BE SORTED IN ORDER OF CAM ID
-ae_files = ["data/ae_cam0.txt", "data/ae_cam1.txt", "data/ae_cam2.txt"]
-detected_time = 18000
-video_dir = "data"
-class_mappings = {"rec_vehicle": 1, "tank": 0}
+# ae_files = ["data/ae_cam0.txt", "data/ae_cam1.txt", "data/ae_cam2.txt"]
+example_video_path = os.path.join( video_dir, os.listdir(video_dir)[0])
+detected_time = get_video_total_frames(example_video_path)
 
-# Get the CE we are interested in
-ce_obj, ce_structure = build_ce1(class_mappings)
+# video_dir = "data"
+
+class_mappings = {"rec_vehicle": 1, "tank": 0}
+ce_obj, ce_structure = None, None
+if ce_type == "carla":
+
+    # Class mappings are different
+    class_mappings = {"person": 0, "car": 2, "package": 30}
+
+    # Get the ce number
+    ce_index = int(parent_name[3])
+    if ce_index == 0:
+        ce_index = 5
+
+    # Get the CE we are interested in
+    if ce_index == 1:
+        ce_obj, ce_structure = build_carla_ce1(class_mappings)
+
+    elif ce_index == 2:
+
+        ce_obj, ce_structure =  build_carla_ce2(class_mappings)
+
+    elif ce_index == 3:
+
+        ce_obj, ce_structure =  build_carla_ce3(class_mappings)
+
+    elif ce_index == 4:
+
+        ce_obj, ce_structure =  build_carla_ce4(class_mappings)
+
+    elif ce_index == 5:
+
+        ce_obj, ce_structure =  build_carla_ce5(class_mappings)
+
+else:  # soartech data
+    ce_obj, ce_structure = build_ce1(class_mappings)
 
 
 # Start keeping track of some general metrics, like timing
 st.session_state["timing_metrics_file"] = os.path.join(saved_annotations_path, "time_metrics.json")
-
 
 if annotation_type == "baseline":
 
@@ -84,7 +159,7 @@ else: # Our adapt method
     st.session_state["video_dir"] = video_dir
     st.session_state["class_mappings"] = class_mappings
     st.session_state["ce_obj"] = ce_obj
-    st.session_state["to_annotate_path"] = to_annotate_path
+    st.session_state["to_annotate_path"] = saved_annotations_path
     st.session_state["saved_annotations_path"] = saved_annotations_path
 
     # First, initialize data before we move forward

@@ -3,6 +3,10 @@
 import re
 import traceback
 import inspect
+from transitions import Machine
+from transitions.extensions import HierarchicalMachine
+from transitions.extensions import GraphMachine
+from transitions.extensions.factory import HierarchicalGraphMachine
 import json
 import itertools
 
@@ -13,11 +17,11 @@ import itertools
 
 
 import os, sys, inspect, io
+from IPython.display import Image, display, display_png
+from utils import parse_ae
 
 import cv2
 import numpy as np
-
-from utils import parse_ae
 
 
 
@@ -43,7 +47,7 @@ class sensor_event_stream:
 
 class watchboxResult:
 
-    def __init__(self, time=0, obj_event={}, previous_state={}):
+    def __init__(self, time=0, obj_event={}, previous_state={}, locations={}):
 
         # Blank state
         if not obj_event and not previous_state:
@@ -57,7 +61,7 @@ class watchboxResult:
         
         # Otherwise, just proceed as before.
         self.objects = self.get_new_states(obj_event, previous_state)
-        
+        self.locations = locations
         # Now we can calculate these items
         self.size = len(self.objects.keys())
         self.speed = 0
@@ -67,6 +71,8 @@ class watchboxResult:
     # Directly set states
     def directly_set_states(self, time, objects, locations):
         self.objects = objects
+        # print("direct set:")
+        # print(self.objects)
         self.locations = locations
         self.size = len(self.objects.keys())
         self.time = time
@@ -96,11 +102,12 @@ class watchboxResult:
 class watchbox:
 
     # Set up a watchbox
-    def __init__(self, camera_id, positions, classes, watchbox_id):
+    def __init__(self, camera_id, positions, classes, watchbox_id, class_mappings):
         self.camera_id = int(camera_id)
         self.positions = positions
         self.watchbox_id = watchbox_id
         self.classes = classes
+        self.class_mappings = class_mappings
         self.data = [watchboxResult()]
         self.max_history = 1000
         
@@ -124,8 +131,49 @@ class watchbox:
             at_key = max(-len(self.data), -at - 1)
 
             composition_result = self.data[at_key]
+            # print("\n")
+            # print(composition_result.objects.keys())
+            # print([composition_result.objects[x]["class"] for x in composition_result.objects.keys()])
+            # print("\n")
+            print("\ncomp1")
+            print([x.objects for x in self.data])
+
+            # Make sure you only get the composition for the relevant object
+            if model:
+                # print("HERE")
+                # print(model)
+                # class_index = self.classes.index(model)
+                # Go to class mappings
+                class_index = self.class_mappings[model]
+
+                time = composition_result.time
+
+                # Get all objects with match class index
+                related_objects = {}
+                for key in composition_result.objects.keys():
+                    # print("HI")
+                    # print(composition_result.objects)
+                    # print(composition_result.objects[key])
+                    # print("\n")
+                    if class_index == composition_result.objects[key]['class']:
+                        related_objects[key] = composition_result.objects[key]
+                composition_result = watchboxResult()
+                composition_result.objects = related_objects
+                composition_result.time = time
+                composition_result.size = len(related_objects.keys())
+            
+
+            # composition_result.objects
+            # print("\n")
+            # print(composition_result.objects.keys())
+            # print([composition_result.objects[x]["class"] for x in composition_result.objects.keys()])
+            # print("\n")
+            # asdf
             # print("data for cam " + str(self.camera_id) + " and id " + str(self.watchbox_id))
             # print(composition_result)
+            print("comp result")
+            print(composition_result.objects)
+            print(composition_result.size)
             return composition_result
         
     
@@ -134,7 +182,7 @@ class watchbox:
     #  Data looks like: 
     #  {'camera_id': camera_id, 'results': {'track_id': 36, 'watchboxes': 
     #      [0], 'enters': [True], 'directions': ['middle']} }
-    def update(self, data, frame_index):
+    def update(self, data, tracks, frame_index):
         
         # Remember - we are updating a list of dictionaries
 
@@ -142,6 +190,9 @@ class watchbox:
         incoming_cam_id = data["camera_id"]
         results = data["results"]
 
+        # print("res")
+        # print(results)
+        # print("endres")
 
         # Get the relevant matching watchbox
         for c_i, current_wb_id in enumerate(results["watchboxes"]):
@@ -155,10 +206,11 @@ class watchbox:
                             "enters": results["enters"][c_i], 
                             "directions": results["directions"][c_i],
                             "class": results["class"]}
-
+                # Get relevant watchboxes
+                locations = tracks[results["track_id"]]["bbox_data"]
             
                 # Append to our data
-                self.data.append(watchboxResult(frame_index, obj_event, self.data[-1]))
+                self.data.append(watchboxResult(frame_index, obj_event, self.data[-1], locations))
                 print("Current watchbox count is " + str(self.data[-1].size))
                 print(frame_index)
                 # Also make sure our max_history_length is being enforced
@@ -238,7 +290,7 @@ class SET:
         self.event_name = [x.event_name for x in args]
         print(self.event)
         print(self.event_name)
-
+        # asdf
 
 class SEQUENCE:
     def __init__(self, *args):
@@ -246,11 +298,18 @@ class SEQUENCE:
         # First, get the time parameter and ignore the rest
         
         # generate the statement to execute
-        output = [[x.event[0]] for x in args]
+        new_statements = []
+        for x in args:
+            if type(x) == list:
+                new_statements.extend(x)
+            else:
+                new_statements.append(x)
+
+        output = [[x.event[0]] for x in new_statements]
         output.append(["sequence_untimed"])
 
         self.event = output
-        self.event_name = [x.event_name for x in args]
+        self.event_name = [x.event_name for x in new_statements]
 
 
 class SET_TIMED:
@@ -262,13 +321,20 @@ class SET_TIMED:
         # First, get the time parameter and ignore the rest
         time_param = args[-1]
         statements = args[:-1]
+
+        new_statements = []
+        for x in statements:
+            if type(x) == list:
+                new_statements.extend(x)
+            else:
+                new_statements.append(x)
         
         # generate the statement to execute
-        output = [[x.event[0]] for x in statements]
+        output = [[x.event[0]] for x in new_statements]
         output.append(["set_timed", None, time_param])
 
         self.event = output
-        self.event_name = [x.event_name for x in statements]
+        self.event_name = [x.event_name for x in new_statements]
 
 
 class SEQUENCE_TIMED:
@@ -282,11 +348,19 @@ class SEQUENCE_TIMED:
         statements = args[:-1]
         
         # generate the statement to execute
-        output = [[x.event[0]] for x in statements]
+        # Go through each element of the statements, and un-listify it
+        new_statements = []
+        for x in statements:
+            if type(x) == list:
+                new_statements.extend(x)
+            else:
+                new_statements.append(x)
+
+        output = [[x.event[0]] for x in new_statements]
         output.append(["sequence_timed", None, time_param])
 
         self.event = output
-        self.event_name = [x.event_name for x in statements]
+        self.event_name = [x.event_name for x in new_statements]
 
 class HOLDS:
 
@@ -464,9 +538,9 @@ class complexEvent:
         
         
     # Add watchboxes
-    def addWatchbox(self, name, region_id, positions, classes, watchbox_id):
+    def addWatchbox(self, name, region_id, positions, classes, watchbox_id, class_mappings):
 
-        current_watchbox = watchbox(region_id, positions, classes, watchbox_id)
+        current_watchbox = watchbox(region_id, positions, classes, watchbox_id, class_mappings)
         current_data = [name, current_watchbox]
 
         self.watchboxes.update({current_data[0]:current_data[1]})
@@ -475,7 +549,7 @@ class complexEvent:
     # Generate watchbox data to send
     def getWatchboxConfigs(self):
 
-        #  Should look like { cam_id: [[positions, class], []...]}
+        #  Should look like { cam_id: [[positions, [classes]], []...]}
         watchbox_config = {}
         # Iterate through every watchbox
         for wb_key in self.watchboxes.keys():
@@ -484,6 +558,7 @@ class complexEvent:
             cam_id = current_watchbox.camera_id
             wb_positions = current_watchbox.positions
             wb_classes = current_watchbox.classes
+            wb_id = current_watchbox.watchbox_id
 
             for class_id in wb_classes:
 
@@ -491,9 +566,9 @@ class complexEvent:
                 class_index = self.class_mappings[class_id]
 
                 if cam_id not in watchbox_config:
-                    watchbox_config[cam_id] = [wb_positions+[class_index]]
+                    watchbox_config[cam_id] = [wb_positions+[class_index,wb_id]]
                 else:
-                    watchbox_config[cam_id].append(wb_positions+[class_index])
+                    watchbox_config[cam_id].append(wb_positions+[class_index,wb_id])
         
         return watchbox_config
         
@@ -766,7 +841,7 @@ class complexEvent:
 #         # We need to add a transition for going from 'asleep' to our first state.
         
     # Add update and evaluate
-    def update(self, data, time_index):
+    def update(self, data, tracks, time_index):
         
         # Data will take on a structure like:
         # [{'camera_id': 0, 'results': [{'track_id': 36, 'watchboxes': [0], 
@@ -783,7 +858,7 @@ class complexEvent:
 
             # Update each watchbox
             for x in self.watchboxes.keys():
-                self.watchboxes[x].update(update_data, time_index)
+                self.watchboxes[x].update(update_data, tracks, time_index)
 
 
     # Get occurrence times
@@ -855,6 +930,14 @@ class complexEvent:
             # Now check if the differences in times are correct
             max_time = max(within_occurrence_times.values())
             min_time = min(within_occurrence_times.values())
+
+            # print(event_names)
+            # print(eval_results)
+            # print(in_order)
+            # print(max_time)
+            # print(min_time)
+            # print(time_bound)
+            # asdf
 
             if in_order and (max_time - min_time) < time_bound:
                 result = True
@@ -1056,7 +1139,11 @@ class complexEvent:
         # If the current item is a single statement, then just evaluate it (watchbox statement)
         if type(function_to_execute) == tuple:
             func_name = function_to_execute[0]
+            # print("Evaluating recurse_eval for")
+            # print(function_to_execute[1])
             eval_result = eval(function_to_execute[1])
+            # print(eval_result)
+            # print("end recurse_eval")
             change_of_state = False
 
             # Identify the event data
@@ -1083,6 +1170,11 @@ class complexEvent:
                 if change_of_state:
                     eval_change_of_state = True
                 event_names.append(function_tups[0])
+
+            # print("recuse_eval")
+            # print(event_names)
+            # print(results)
+            # print("end recurse_eval")
             
             # Evaluate all results based on operator
             final_eval_result = self.eval_operators(results, eval_operator, \
@@ -1092,52 +1184,88 @@ class complexEvent:
 
             return final_eval_result, eval_change_of_state
 
-
-
-
-    # Perform evaluation
-    def evaluate(self, time_index):
-
-        eval_results = []
-        overall_change_of_state = False
+    # For the current time, set the watchbox states
+    #  latest_first determines if we are inserting the object in the middle
+    #    or appending it later
+    def set_watchbox_states_for_time_and_event(self, known_vicinal_events, current_time, latest_first):
         
-        eval_indices_to_track = [self.current_index]
-        # if self.no_enforce_sequence:
-        #     eval_indices_to_track = [x for x in range(0, len(self.executable_functions))]
+        wb_state_changed = False
 
-        current_evaluated_function = self.executable_functions[self.current_index]
+        # Iterate through all watchboxes and their viciinal events, and set up their state
+        for wb_key in known_vicinal_events.keys():
 
-        # It is important to note how we are performing evaluation:
-        #  Firstly, we obviously have to evaluate the 'current' state we are at in the FSM
-        #  However, we must also evaluate certain previous states, as we wish to return an interval when they are true.
-        #  So we evaluate everything up to the current state, and for previous states we evaluate them until they become false from true.
-        for i in range(0, len(self.executable_functions)):
+            for vicinal_event in known_vicinal_events[wb_key]:
 
-            # We actually stop in the case of sequences where previous events haven't occurred
-            if i > self.current_index:
+                # Check if the time matches
+                if vicinal_event[0] == current_time:
+                    # Get the set of objects
+                    print("\nOCCURRED")
+                    print(current_time)
+                    print(vicinal_event)
+                    
+                    curr_objects = {}
+                    for x,y in vicinal_event[3].items():
+                        curr_obj_item = {"track_id": x, "class": y["prediction"]}
+                        curr_objects[x] = curr_obj_item
+
+                    # curr_objects = {x:y["prediction"] for x,y in vicinal_event[3].items()}
+                    # Set the watchbox state for this watchbox
+
+                    obj_locations = {x:y["bbox_data"] for x,y in vicinal_event[3].items()}
+                    new_wb_result = watchboxResult()
+                    new_wb_result.directly_set_states(current_time, curr_objects, obj_locations)
+                    if latest_first:
+                        self.watchboxes[vicinal_event[2]].data.append(new_wb_result)
+                    else:
+                        self.watchboxes[vicinal_event[2]].data.insert(1, new_wb_result)
+                    wb_state_changed = True
+
+        return wb_state_changed
+
+    # Clear watchbox states and make sure they are empty
+    def re_initialize_wb_states(self):
+
+        # For all watchboxes, clear and reinitialize.
+        for wb_key in self.watchboxes.keys():
+
+            self.watchboxes[wb_key].data = [watchboxResult()]
+
+    # Get the required composition
+    def get_required_wb_states(self, functions, wb_histories):
+
+        required_wb_states = []
+        # Iterate through functions
+        for f_i, func in enumerate(functions):
+            
+            # Skip operators
+            if type(func) != tuple:
                 continue
-            
-            # Otherwise, get the current function to execute
-            # Remember, we have multiple functions to execute
-            
-            current_functions = self.executable_functions[i]
-            extra_event_data = []
-            final_eval_result, change_of_state = self.recurse_eval(current_functions, \
-                extra_event_data, time_index)
-            if change_of_state:
-                overall_change_of_state = True
-            eval_results.append(final_eval_result)
-        
-        current_result = []
-        for eval_index in eval_indices_to_track:
-            if eval_index < len(eval_results):
-                current_result.append(eval_results[eval_index])
-                # If the most recent event has occurred, move up our window
-                if self.current_index < len(eval_results) and eval_results[self.current_index]:
-                    self.current_index += 1
 
-        return eval_results, overall_change_of_state, current_evaluated_function, extra_event_data
+            # Get the text
+            func_text = func[1]
 
+            # Iterate through watchbox
+            wb_query = wb_histories[f_i]
+            wb_names = wb_query[0]
+            wb_time_indexes = wb_query[1]
+
+            for wb_i in range(len(wb_names)):
+                # Get the composition specified by the query
+                required_comp = parse_ae(func_text, wb_i)
+                # Get the specific time when this was detected
+                current_time_index = -1 - wb_time_indexes[wb_i]
+                current_wb_name = wb_names[wb_i]
+                object_locations = \
+                    self.watchboxes[current_wb_name].data[current_time_index].locations
+                object_preds = \
+                    self.watchboxes[current_wb_name].data[current_time_index].objects
+                current_wb_cam = "cam"+str(self.watchboxes[current_wb_name].camera_id)
+                wb_time = self.watchboxes[current_wb_name].data[current_time_index].time
+                detection_data = (current_wb_name, wb_time, object_locations, object_preds, current_wb_cam)
+
+                required_wb_states.append((required_comp, detection_data))
+            
+        return required_wb_states
 
     # Recursively go through each function, check its previous eval result,
     #  and compute the result
@@ -1187,85 +1315,63 @@ class complexEvent:
             return final_eval_result, eval_change_of_state
 
 
-    # For the current time, set the watchbox states
-    #  latest_first determines if we are inserting the object in the middle
-    #    or appending it later
-    def set_watchbox_states_for_time_and_event(self, known_vicinal_events, current_time, latest_first):
+    # Perform evaluation
+    def evaluate(self, time_index):
+
+        eval_results = []
+        overall_change_of_state = False
         
-        wb_state_changed = False
+        eval_indices_to_track = [self.current_index]
+        # if self.no_enforce_sequence:
+        #     eval_indices_to_track = [x for x in range(0, len(self.executable_functions))]
 
-        # Iterate through all watchboxes and their viciinal events, and set up their state
-        for wb_key in known_vicinal_events.keys():
+        if self.current_index >= len(self.executable_functions):
+            return False, False, None, None
 
-            for vicinal_event in known_vicinal_events[wb_key]:
+        current_evaluated_function = self.executable_functions[self.current_index]
+        
 
-                # Check if the time matches
-                if vicinal_event[0] == current_time:
-                    # Get the set of objects
-                    curr_objects = {x:y["prediction"] for x,y in vicinal_event[3].items()}
-                    # Set the watchbox state for this watchbox
+        # It is important to note how we are performing evaluation:
+        #  Firstly, we obviously have to evaluate the 'current' state we are at in the FSM
+        #  However, we must also evaluate certain previous states, as we wish to return an interval when they are true.
+        #  So we evaluate everything up to the current state, and for previous states we evaluate them until they become false from true.
+        for i in range(0, len(self.executable_functions)):
 
-                    obj_locations = {x:y["bbox_data"] for x,y in vicinal_event[3].items()}
-                    new_wb_result = watchboxResult()
-                    new_wb_result.directly_set_states(current_time, curr_objects, obj_locations)
-                    if latest_first:
-                        self.watchboxes[vicinal_event[2]].data.append(new_wb_result)
-                    else:
-                        self.watchboxes[vicinal_event[2]].data.insert(1, new_wb_result)
-                    wb_state_changed = True
-
-        return wb_state_changed
-
-
-
-    # Clear watchbox states and make sure they are empty
-    def re_initialize_wb_states(self):
-
-        # For all watchboxes, clear and reinitialize.
-        for wb_key in self.watchboxes.keys():
-
-            self.watchboxes[wb_key].data = [watchboxResult()]
-
-    
-    # Get the required composition
-    def get_required_wb_states(self, functions, wb_histories):
-
-        required_wb_states = []
-        # Iterate through functions
-        for f_i, func in enumerate(functions):
-            
-            # Skip operators
-            if type(func) != tuple:
+            # We actually stop in the case of sequences where previous events haven't occurred
+            if i > self.current_index:
                 continue
-
-            # Get the text
-            func_text = func[1]
-
-            # Iterate through watchbox
-            wb_query = wb_histories[f_i]
-            wb_names = wb_query[0]
-            wb_time_indexes = wb_query[1]
-
-            for wb_i in range(len(wb_names)):
-                # Get the composition specified by the query
-                required_comp = parse_ae(func_text, wb_i)
-                # Get the specific time when this was detected
-                current_time_index = -1 - wb_time_indexes[wb_i]
-                current_wb_name = wb_names[wb_i]
-                object_locations = \
-                    self.watchboxes[current_wb_name].data[current_time_index].locations
-                object_preds = \
-                    self.watchboxes[current_wb_name].data[current_time_index].objects
-                current_wb_cam = "cam"+str(self.watchboxes[current_wb_name].camera_id)
-                wb_time = self.watchboxes[current_wb_name].data[current_time_index].time
-                detection_data = (current_wb_name, wb_time, object_locations, object_preds, current_wb_cam)
-
-                required_wb_states.append((required_comp, detection_data))
             
-        return required_wb_states
+            # Otherwise, get the current function to execute
+            # Remember, we have multiple functions to execute
+            
+            current_functions = self.executable_functions[i]
+            extra_event_data = []
+            final_eval_result, change_of_state = self.recurse_eval(current_functions, \
+                extra_event_data, time_index)
 
+            # print("\nce_builder: hi")
+            # print(current_functions)
+            # print(time_index)
+            # print(final_eval_result)
+            # print("\n")
 
-        # output = parse_ae(function, split_index)
+            # print("HIHI")
+            # print(current_functions)
+            # print(final_eval_result)
+            # print("HEHE")
+            if change_of_state:
+                overall_change_of_state = True
+            eval_results.append(final_eval_result)
+        
+        current_result = []
+        for eval_index in eval_indices_to_track:
+            if eval_index < len(eval_results):
+                current_result.append(eval_results[eval_index])
+                # If the most recent event has occurred, move up our window
+                if self.current_index < len(eval_results) and eval_results[self.current_index]:
+                    self.current_index += 1
+
+        return eval_results, overall_change_of_state, current_evaluated_function, extra_event_data
 
     # Check the watchbox history length, and make sure we keep update when necessary
     def update_wb_history(self, current_functions):
@@ -1317,6 +1423,7 @@ class complexEvent:
         # Return the watchboxes relevant for these functions
         return wb_histories
 
+
     # Determine ae satisfaction
     # We iterate backwards in time
     #   - Updating the watchboxes every time
@@ -1330,18 +1437,22 @@ class complexEvent:
 
         # Iterate backwards in time
         #  This is used to determine if an AE has occurred
-        for i in range(latest_time, 0, -1):
+        for i in range(latest_time, -1, -1):
 
             # First, check if any watchbox state actually changed
             wb_state_changed = \
                 self.set_watchbox_states_for_time_and_event(known_vicinal_events, i, False)
-
 
             # Now recursively evaluate if a change occurred.
             if wb_state_changed:
                 extra_event_data = []
                 final_eval_result, change = \
                     self.recurse_measure(current_functions, extra_event_data, latest_time)
+                
+                print("\nhi1")
+                print(i)
+                print(current_functions)
+                print(final_eval_result)
 
                 # Given the current function, determine how to clear the watchbox states
                 wb_histories = self.update_wb_history(current_functions)
@@ -1382,6 +1493,11 @@ class complexEvent:
                     final_eval_result, change = \
                         self.recurse_measure(current_functions, extra_event_data, latest_time)
 
+
+                    print("\nhi2")
+                    print(current_functions)
+                    print(final_eval_result)
+
                     if final_eval_result:
                         detection_time = i
                         break
@@ -1391,7 +1507,8 @@ class complexEvent:
         
         return ae_satisfied, detection_time, wb_states_to_check
 
-    # Determine the closest AEs given the known vicinal events
+
+# Determine the closest AEs given the known vicinal events
     def find_closest_aes(self, known_vicinal_events, latest_time):
 
         ae_statuses = []
@@ -1407,9 +1524,15 @@ class complexEvent:
             if len(current_functions) > 1:
                 ae_name[-1] = current_functions[-1]
 
+            print("Checking at")
+            print(i)
+            
+
             # Begin iterating backwards in time
             ae_satisfied, satisfaction_time, wb_states_to_check =\
                 self.check_ae_satisfied(current_functions, known_vicinal_events, latest_time)
+
+
 
             # If AE is satisfied, we move on.  
             #  Otherwise, we set this AE as 'not satisfied', and keep moving
@@ -1421,7 +1544,8 @@ class complexEvent:
 
             ae_statuses.append((ae_name, ae_satisfied, satisfaction_time, wb_states_to_check))
 
-        return ae_statuses
+        return ae_statuses   
+        
           
           
     # Add the visualization
