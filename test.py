@@ -149,3 +149,6 @@ else: # Our adapt method
 #   - time spend on annotation
 #   - Time spend during the entire process for a single CE
 # Record for every example, and update the same file
+
+# MAKE SURE YOU DO NOT RE-ANNOTATE STUFF THAT ALREADY HAS BEEN ANNOTATE
+#  e.g. if you close this page, you shouldnt have to restart.
