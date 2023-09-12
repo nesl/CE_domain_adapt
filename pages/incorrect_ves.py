@@ -99,7 +99,7 @@ if st.button("No, it is incorrect"):
     
     # Save image to that folder
     print(st.session_state.page2)
-    save_image(save_filepath, convert_from_bgr(st.session_state["current_image"]))
+    save_image(save_filepath, st.session_state["current_image"])
     nextpage()
 
 
@@ -123,10 +123,10 @@ with display_placeholder.container():
     for class_key in class_groups.keys():
         class_name = get_name_from_index(class_mappings, class_key)
         if class_name:
-            st.write("There are {x} objects of type {y} within the red highlighted area.".format(\
+            st.write("There are {x} objects of type {y} overlapping with the red highlighted area.".format(\
                 x=class_groups[class_key], y= class_name))
     if len(class_groups.keys()) == 0: #Empty item
-        st.write("There are no objects within the red highlighted area.")
+        st.write("There are no objects overlapping with the red highlighted area.")
 
 
     

@@ -325,6 +325,33 @@ def save_track_data_to_label(tracked_ids_per_cam, ae_files, video_dir):
 #    in a necessary AE
 
 
+def fix_relevant_aes(ae_programs, wb_data):
+
+    new_relevant_aes = {}
+    # Iterate through each ae name
+    for ae_name in ae_programs.keys():
+        
+        # get the data
+        ae_program_data = ae_programs[ae_name]
+        wb_names = ae_program_data[0]
+        ae_statement = ae_program_data[1]
+        # Iterate through each watchbox
+        for wb_i, wb_name in enumerate(wb_names): 
+            model, comp_size, op = parse_ae(ae_statement, wb_i)
+            # print(op)
+            current_wb_info = wb_data[wb_name]
+            cam_name = "cam"+str(current_wb_info['cam_id'])
+            wb_positions = current_wb_info["positions"]
+
+            if ae_name not in new_relevant_aes.keys():
+                new_relevant_aes[ae_name] = [(cam_name, (model, op, ''), wb_positions)]
+
+    # print(new_relevant_aes)
+    return new_relevant_aes
+            
+
+
+
 # So here's how we split up the domain adapt functions...
 #   # Basically we need 4 pages:
 #   One for starting the user session and initializing variables
@@ -337,6 +364,13 @@ def initialize_labelling_data(result_path, ae_files, detected_time):
 
     # Get relevant AEs based on the detection time
     relevant_aes, relevant_ae_times = get_ordered_relevant_detected_aes(events_to_check, detected_time)
+
+    # Fix the relevant aes - these need to be complete.
+    relevant_aes = fix_relevant_aes(ae_programs, wb_data)
+
+    # Example of relevant aes:
+    #  {'car_enters_again ': [('cam0', ('car', '', ''), [300, 300, 799, 599])], 
+    # 'car_enters_then_exits ': [('cam0', ('car', '', ''), [300, 300, 799, 599])]}
 
     return relevant_aes, ae_programs, wb_data
 
@@ -356,7 +390,8 @@ def grab_aes(relevant_aes, ae_programs, wb_data):
     # Data is {ae_name : [(camera, composition, wb_coords) ... ]}
     search_ae_data = {}
 
-
+    relevant_aes = [(x, relevant_aes[x]) for x in relevant_aes.keys()]
+    
     # Iterate backwards from last AE (by default this is already sorted in reverse)
     for ae_i, ae_event in enumerate(relevant_aes):
 
@@ -369,6 +404,8 @@ def grab_aes(relevant_aes, ae_programs, wb_data):
 
         #  Now, iterate through each watchbox state relevant to this AE
         for wb_event_i, wb_event in enumerate(current_event_data):
+            # print("HERE")
+            # print(wb_event)
 
             # Get the time for this watchbox event
             wb_event_time = wb_event[0]
@@ -376,8 +413,8 @@ def grab_aes(relevant_aes, ae_programs, wb_data):
             # Parse the AE to get some data
             wb_composition = parse_ae(ae_program_for_event, wb_event_i)
             # Get the watchbox coordinates for this event
-            wb_coords = get_wb_coords(wb_data, current_event_data[wb_event_i])
-
+            # wb_coords = get_wb_coords(wb_data, current_event_data[wb_event_i])
+            wb_coords = wb_event[2]
             search_entry = (wb_camera, wb_composition, wb_coords)
 
             search_ae_data[current_event_name].append(search_entry)
@@ -390,7 +427,7 @@ def grab_aes(relevant_aes, ae_programs, wb_data):
 
             
             # By default, we add each wb event
-            wb_name = wb_event[2]
+            wb_name = wb_event[0]
             if wb_name not in unconfirmed_vicinal_events:
                 unconfirmed_vicinal_events[wb_name] = {}
             unconfirmed_vicinal_events[wb_name][wb_event_time] = wb_event
@@ -407,6 +444,9 @@ def grab_aes(relevant_aes, ae_programs, wb_data):
         # Now sort the vicinal events under each watchbox
         unconfirmed_vicinal_events[wb_key] = [unconfirmed_vicinal_events[wb_key][x] for x in sorted_times]
 
+    # print("here")
+    # print(search_ae_data)
+
     return unconfirmed_vicinal_events, search_ae_data
 
 
@@ -417,32 +457,34 @@ def verify_aes(unconfirmed_vicinal_events, ce_obj, detected_time):
 
     ae_statuses = find_closest_aes(unconfirmed_vicinal_events, ce_obj, detected_time)
     
-    print(ae_statuses)
+    # print("HERE")
+    # print(ae_statuses)
     confirmed_vicinal_events = {}
     for status in ae_statuses:
         wb_queries = status[3]
-        for wb_query in wb_queries:
-            
-            events_to_verify.append(wb_query)
-            
-            # img, comp = get_image_for_wb_state(wb_query, "data", ce_obj.watchboxes, class_mappings)
-            
-            # # Show image here...
-            # save_image("results/x.jpg", img)
-
-            # # Get user input here
-            # # user_label = input()
-            # # if user_label == "correct":
+        if wb_queries:
+            for wb_query in wb_queries:
                 
-            # # Get the time and watchbox name
-            # event_wb_name = wb_query[1][0]
-            # event_time = wb_query[1][1]
+                events_to_verify.append(wb_query)
+                
+                # img, comp = get_image_for_wb_state(wb_query, "data", ce_obj.watchboxes, class_mappings)
+                
+                # # Show image here...
+                # save_image("results/x.jpg", img)
 
-            # # WE ALLOW THE USER TO CORRECT IT HERE, WHICH CHANGES THE WB_QUERY
-            # #  And creates a new entry for additional sampling
+                # # Get user input here
+                # # user_label = input()
+                # # if user_label == "correct":
+                    
+                # # Get the time and watchbox name
+                # event_wb_name = wb_query[1][0]
+                # event_time = wb_query[1][1]
 
-            # confirmed_vicinal_events = match_and_add_ves(unconfirmed_vicinal_events, confirmed_vicinal_events,\
-            #      event_wb_name, event_time)
+                # # WE ALLOW THE USER TO CORRECT IT HERE, WHICH CHANGES THE WB_QUERY
+                # #  And creates a new entry for additional sampling
+
+                # confirmed_vicinal_events = match_and_add_ves(unconfirmed_vicinal_events, confirmed_vicinal_events,\
+                #      event_wb_name, event_time)
 
     return events_to_verify
     # return confirmed_vicinal_events
@@ -559,17 +601,21 @@ def reorganize_video_search(search_ae, missing_intervals, video_dir):
             missing_aes += ae_list
         interval = missing_data[1]
 
+
         # iterate through each missing ae
         for missing_ae in missing_aes:
 
             # Skip if it's a non-ae name (like 'and')
-            if missing_ae not in search_ae.keys():
+            
+            if type(missing_ae) != str or missing_ae not in search_ae.keys():
                 continue
 
             # Otherwise, find all data for this ae
+            # print(search_ae)
             data_for_ae = search_ae[missing_ae]
             # Iterate through each data segment
             for data_item in data_for_ae:
+                # print(data_item)
                 cam_name = data_item[0]
                 vfilepath = [x for x in os.listdir(video_dir) if ".mp4" in x]
                 vfilepath = [x for x in vfilepath if cam_name in x][0]
@@ -585,6 +631,9 @@ def reorganize_video_search(search_ae, missing_intervals, video_dir):
 
                 annotation_tup = (vfilepath, interval, wb_bbox, comp)
                 video_segments_to_annotate.append(annotation_tup)
+
+    # print("HI")
+    # print([x[1] for x in video_segments_to_annotate])
 
     return video_segments_to_annotate
 
@@ -655,9 +704,7 @@ def domain_adapt(result_path, ae_files, detected_time, video_dir, ce_obj, class_
     data = segments_to_annotate[0]
     object_comp = data[3]
     out_data = get_class_grouping(object_comp)
-    print(out_data)
-    asdf
-    
+
     # Now, for every missing interval, request the user to look at that interval
     for interval in missing_intervals:
         print("Do something here...")

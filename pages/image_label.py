@@ -35,19 +35,25 @@ def run(img_dir, labels):
         st.session_state["annotation_files"] = idm.get_exist_annotation_files()
         st.session_state["image_index"] = 0
         st.session_state["labelled_dirs"].append(img_dir)
+        # sorted(st.session_state["files"])
+        st.session_state["files"] = [x for x in st.session_state["files"] if ".jpg" in x]
     elif img_dir not in st.session_state["labelled_dirs"]:
         # print("restarting...")
         st.session_state["files"] = idm.get_all_files()
         st.session_state["annotation_files"] = idm.get_exist_annotation_files()
         st.session_state["image_index"] = 0
         st.session_state["labelled_dirs"].append(img_dir)
+        # sorted(st.session_state["files"])
+        st.session_state["files"] = [x for x in st.session_state["files"] if ".jpg" in x]
     else:
         # print("OTHERWISE...")
+        st.session_state["files"] = [x for x in st.session_state["files"] if ".jpg" in x]
         idm.set_all_files(st.session_state["files"])
         idm.set_annotation_files(st.session_state["annotation_files"])
     
     def refresh():
         st.session_state["files"] = idm.get_all_files()
+        st.session_state["files"] = [x for x in st.session_state["files"] if ".jpg" in x]
         st.session_state["annotation_files"] = idm.get_exist_annotation_files()
         st.session_state["image_index"] = 0
 
@@ -63,8 +69,11 @@ def run(img_dir, labels):
         else:
             st.warning('This is the last image. Click below to go back to beginning.')
             # This is the last image, so go back to the beginning
-                   
+            st.session_state["exp_id"] += 1
 
+            # Save total time to file
+            add_metrics_to_json_file(st.session_state["timing_metrics_file"], \
+                "total_time", time.time() - st.session_state["ce_annotation_starttime"])
 
     def previous_image():
         st.session_state["st"] = time.time()
@@ -90,6 +99,7 @@ def run(img_dir, labels):
         st.session_state["st"] = time.time()
         file_index = st.session_state["files"].index(st.session_state["file"])
         st.session_state["image_index"] = file_index
+        
 
     # Sidebar: show status
     n_files = len(st.session_state["files"])

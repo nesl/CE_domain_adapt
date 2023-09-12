@@ -3,10 +3,10 @@
 import re
 import traceback
 import inspect
-from transitions import Machine
-from transitions.extensions import HierarchicalMachine
-from transitions.extensions import GraphMachine
-from transitions.extensions.factory import HierarchicalGraphMachine
+# from transitions import Machine
+# from transitions.extensions import HierarchicalMachine
+# from transitions.extensions import GraphMachine
+# from transitions.extensions.factory import HierarchicalGraphMachine
 import json
 import itertools
 
@@ -17,7 +17,7 @@ import itertools
 
 
 import os, sys, inspect, io
-from IPython.display import Image, display, display_png
+# from IPython.display import Image, display, display_png
 from utils import parse_ae
 
 import cv2
@@ -1524,8 +1524,8 @@ class complexEvent:
             if len(current_functions) > 1:
                 ae_name[-1] = current_functions[-1]
 
-            print("Checking at")
-            print(i)
+            # print("Checking at")
+            # print(i)
             
 
             # Begin iterating backwards in time

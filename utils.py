@@ -88,7 +88,7 @@ def sample_and_save_videos(to_annotate_path, video_dir, subsample_val):
         # Open the file and get every subsample_val frame
         num_frames, vidcap = get_video_and_data(vfilepath)
 
-        print(num_frames)
+        # print(num_frames)
 
         # Loop until we're out of video frames
         for frame_index in tqdm(range(0, num_frames, subsample_val)):
@@ -307,20 +307,25 @@ def parse_ae(ae_text, index):
 
     # Now, get the model and size data
     ae_split = ae_text.split("composition")[1:]
+
     ae_split = [x.split("self.watchboxes") for x in ae_split]
     ae_split = [x[0] for x in ae_split]
-
     ae_text_of_interest = ae_split[index]
 
     # Get the model and size
     model = ae_text_of_interest.split("model='")[1].split("')")[0]
-    operation = ae_text_of_interest.split(".size")[1].split(" ")[0]
+    operation = ae_text_of_interest.split(".size")[1]#.split(" ")[0]
+    # Get rid of any alpha character after
+    operation_final = ""
+    for x in operation:
+        if not x.isalpha():
+            operation_final += x
     comp_size = ae_text_of_interest.split(".size")[1][2:].split(" ")[0]
     
     # Make sure comp_size is all numeric
     comp_size = ''.join([x for x in comp_size if x.isnumeric()])
     
-    return model, comp_size, operation
+    return model, comp_size, operation_final
 
         
 

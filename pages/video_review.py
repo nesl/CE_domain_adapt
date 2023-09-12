@@ -99,17 +99,22 @@ if st.button("I can't find this!"):
 
 # Stuff to annotate
 current_segment = segments_to_annotate[st.session_state.page3]
+print("HIHIHI")
+print(current_segment)
 #  (video_filepath, time_interval, watchbox, composition)
 video_path = current_segment[0]
 time_interval = current_segment[1]
 watchbox = current_segment[2]
 comp = current_segment[3]
 
+
 # Get the total number of frames
 total_frames, vidcap = get_video_and_data(video_path)
 st.session_state["st"] = time.time()
 # Option for playing video
+# print(time_interval)
 value1 = st.slider('Starting Time Index', time_interval[0], time_interval[1], value=time_interval[0], key="vslider")
+
 img1 = get_image_for_frame_index(vidcap, value1)
 img_draw = img1.copy()
 st.subheader('Please use the slider to determine when the video starts')
@@ -117,8 +122,8 @@ st.subheader('Please use the slider to determine when the video starts')
 
 display_placeholder = st.empty()
 
-st.subheader("Find when the number of {x} objects {y} within the highlighted region".format(\
-    x=comp[0], y=comp[2]))
+st.subheader("Find when the number of {x} objects {y} overlapping with the highlighted region".format(\
+    x=comp[0], y=comp[1]))
 st.write("Ignore cases where there are no objects at all.")
 # st.write("Our system detected this event at time {x}".format(x=event_time))
 

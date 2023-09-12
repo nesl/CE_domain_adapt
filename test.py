@@ -26,13 +26,18 @@ st.markdown(
 )
 
 
-video_parent_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/carla_videos_pre_2"
-ae_result_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/jetson_aes/ae_results_pre_2_train"
+# video_parent_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/carla_videos_pre_2"
+# ae_result_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/jetson_aes/ae_results_pre_2_train"
+video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/carla_videos_pre_2"
+ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_pre_2_train"
 training_dir_list = "training_dirs.txt"
 
 annotation_type = "adapt" # either 'baseline' or 'adapt'
 subsample_frames = 50 # Every 50 frames, or roughly 5 seconds
-ce_type = "carla"
+ce_type = "soartech"
+
+# I had 50 subsample for carla, ~5 seconds
+#  and 75 subsample for soartech, ~5 seconds
 
 
 # First, load the directories
@@ -40,8 +45,11 @@ if "experiment_names" not in st.session_state:
     
     # Obtain all ce dirs for training
     experiment_names = []
-    with open(training_dir_list, "r") as f:
-        experiment_names = eval(f.read())
+    # with open(training_dir_list, "r") as f:
+    #     experiment_names = eval(f.read())
+
+    # For soartech, just read the whole directory in, maybe only 5 of each type
+    asdf
     
     # Now, attach them to the video and ae folders
     video_folders = [os.path.join(video_parent_folder, x) for x in experiment_names]
@@ -52,8 +60,11 @@ if "experiment_names" not in st.session_state:
     st.session_state["video_parent_paths"] = video_folders
     st.session_state["experiment_names"] = experiment_names
     st.session_state["exp_id"] = 0
-else:
-    st.session_state["exp_id"] += 1
+# else:
+#     print("Adding...")
+
+
+
 
 # Now, get all the required data
 current_exp_id = st.session_state["exp_id"]
@@ -67,28 +78,41 @@ ae_files = [os.path.join(current_ae_folder_path, x) \
 
 video_dir = st.session_state["video_parent_paths"][current_exp_id]
 parent_name = st.session_state["experiment_names"][current_exp_id]
+print("Running test...")
 print(parent_name)
 
 # Here, we need to initialize a bunch of data
 # result_path = "data/ce_output.txt"
 # parent_name = "out"  # Change this to whatever the ce/iteration folder is
 
-
 saved_annotations_path = os.path.join("annotated", annotation_type, parent_name)
 to_annotate_path = os.path.join("to_annotate", annotation_type, parent_name)
 # Make all directories
 if not os.path.exists("annotated"):
     os.mkdir("annotated")
-if not os.path.exists("to_annotate"):
-    os.mkdir("to_annotate")
+# if not os.path.exists("to_annotate"):
+#     os.mkdir("to_annotate")
 if not os.path.exists("annotated/"+annotation_type):
     os.mkdir("annotated/"+annotation_type)
-if not os.path.exists("to_annotate/"+annotation_type):
-    os.mkdir("to_annotate/"+annotation_type)
+# if not os.path.exists("to_annotate/"+annotation_type):
+#     os.mkdir("to_annotate/"+annotation_type)
 if not os.path.exists(saved_annotations_path):
     os.mkdir(saved_annotations_path)
-if not os.path.exists(to_annotate_path):
-    os.mkdir(to_annotate_path)
+else:
+    if "time_metrics.json" in os.listdir(saved_annotations_path):
+        st.session_state["exp_id"] += 1
+# if not os.path.exists(to_annotate_path):
+#     os.mkdir(to_annotate_path)
+
+
+# Reset some page variables
+if 'page1' in st.session_state:
+    st.session_state.page1 = 0
+if 'page2' in st.session_state:
+    st.session_state.page2 = 0
+if 'page3' in st.session_state:
+    st.session_state.page3 = 0
+
 
 
 # AE FILES MUST BE SORTED IN ORDER OF CAM ID
@@ -176,7 +200,7 @@ else: # Our adapt method
 
     st.session_state["unconfirmed_vicinal_events"] = unconfirmed_vicinal_events
     st.session_state["unconfirmed_vicinal_events2"] = unconfirmed_vicinal_events2
-    st.session_state["search_ae_data"] = search_ae_data
+    st.session_state["search_ae_data"] = relevant_aes
     st.session_state["confirmed_vicinal_events"] = {}
 
 
@@ -199,16 +223,17 @@ else: # Our adapt method
 
     st.session_state["ce_annotation_starttime"] = time.time()
 
-    if st.button('Determing Incorrect Events'):
-        switch_page("incorrect_events")
-    if st.button('Determing Incorrect Events2'):
-        switch_page("incorrect_ves")
-    if st.button('Video checker'):
-        switch_page("video_review")
-    if st.button('Image annotations'):
-        switch_page("image_label")
+    # if st.button('Determing Incorrect Events'):
+    #     switch_page("incorrect_events")
+    # if st.button('Determing Incorrect Events2'):
+    #     switch_page("incorrect_ves")
+    # if st.button('Video checker'):
+    #     switch_page("video_review")
+    # if st.button('Image annotations'):
+    #     switch_page("image_label")
 
-
+    # By default, switch to incorrect events
+    switch_page("incorrect_events")
 
 
 # Todos:

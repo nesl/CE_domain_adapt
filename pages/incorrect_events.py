@@ -5,7 +5,8 @@ import time
 import json
 import os
 from streamlit_extras.switch_page_button import switch_page
-from domain_adapt import find_closest_aes, save_image, match_and_add_ves, verify_aes
+from domain_adapt import find_closest_aes, save_image, \
+    match_and_add_ves, verify_aes
 
 # This is how we hide the sidebar navigation
 st.set_page_config(initial_sidebar_state="collapsed")
@@ -47,6 +48,10 @@ video_dir = st.session_state["video_dir"]
 # Get the events we need to verify
 events_to_verify = verify_aes(unconfirmed_vicinal_events, ce_obj, detected_time)
 
+# No events can be verified
+if not events_to_verify:
+    # Move on.
+    switch_page("incorrect_ves")
 
 # Keep track of which page we are on
 if "page1" not in st.session_state:
@@ -119,10 +124,10 @@ with display_placeholder.container():
     for class_key in class_groups.keys():
         class_name = get_name_from_index(class_mappings, class_key)
         if class_name:
-            st.write("There are {x} objects of type {y} within the red highlighted area.".format(\
+            st.write("There are {x} objects of type {y} overlapping with the red highlighted area.".format(\
                 x=class_groups[class_key], y= class_name))
     if len(class_groups.keys()) == 0: #Empty item
-        st.write("There are no objects within the red highlighted area.")
+        st.write("There are no objects overlapping with the red highlighted area.")
 
 
     # display_placeholder.empty()
