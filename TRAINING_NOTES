@@ -8,15 +8,12 @@ python train.py --weights yolov5s.pt --data data/coco_carla.yaml --device 1 --no
 
 
 # Still have to:
-#  - Alter client.py to have multiple ae result folders
-#     and run_experiment should also notify client.py
-#      when it needs to switch models
-#  - Push domain adapt to github
-#  - Add all of 'DistributedCE/detection' to gdrive to be used at home
+#  X Push domain adapt to github
+#  X Add all of 'DistributedCE/detection' to gdrive to be used at home
 # 
-# Push CE results and AE results to the hard drive
-# Then run experiments for carla AT THE LAB
-# THEN TAKE THE HARD DRIVE WITH YOU
+#  X Push CE results and AE results to the hard drive
+#  X Then run experiments for carla AT THE LAB
+#  X THEN TAKE THE HARD DRIVE WITH YOU
 
 # At home:
 #  Create baseline and adapt for soartech
