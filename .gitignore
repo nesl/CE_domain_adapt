@@ -6,3 +6,6 @@ results/*
 *.jpg
 to_annotate/*
 annotated/*
+datasets/*
+models/*
+
