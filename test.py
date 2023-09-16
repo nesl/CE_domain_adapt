@@ -28,13 +28,20 @@ st.markdown(
 
 # video_parent_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/carla_videos_pre_2"
 # ae_result_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/jetson_aes/ae_results_pre_2_train"
-video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/carla_videos_pre_2"
-ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_pre_2_train"
+# video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/carla_videos_pre_2"
+# ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_pre_2_train"
+video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/soartech_train"
+video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/synthesized_data/carla/carla_videos_part1"
+ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_training_soartech"
+ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results/carla/ae_results_part1_nodomainadapt"
+
 training_dir_list = "training_dirs.txt"
 
 annotation_type = "adapt" # either 'baseline' or 'adapt'
-subsample_frames = 50 # Every 50 frames, or roughly 5 seconds
-ce_type = "soartech"
+subsample_frames = 150 # Try for every 5 seconds for carla, 10 for soartech
+ce_type = "carla"
+
+# selected_ce = "ce_3"
 
 # I had 50 subsample for carla, ~5 seconds
 #  and 75 subsample for soartech, ~5 seconds
@@ -44,13 +51,18 @@ ce_type = "soartech"
 if "experiment_names" not in st.session_state:
     
     # Obtain all ce dirs for training
-    experiment_names = []
+    # experiment_names = []
     # with open(training_dir_list, "r") as f:
     #     experiment_names = eval(f.read())
 
-    # For soartech, just read the whole directory in, maybe only 5 of each type
-    asdf
-    
+    experiment_names = os.listdir(video_parent_folder)
+
+    # DELETE LATER
+    # experiment_names = [x for x in experiment_names if selected_ce in x]
+    # experiment_names = [x for x in experiment_names if "ds_0" in x]
+    # experiment_names = [x for x in experiment_names if "ds_1" not in x]
+    # experiment_names = [x for x in experiment_names if "ds_2" not in x]
+
     # Now, attach them to the video and ae folders
     video_folders = [os.path.join(video_parent_folder, x) for x in experiment_names]
     ae_folders = [os.path.join(ae_result_folder, x) for x in experiment_names]
@@ -62,7 +74,6 @@ if "experiment_names" not in st.session_state:
     st.session_state["exp_id"] = 0
 # else:
 #     print("Adding...")
-
 
 
 

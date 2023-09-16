@@ -464,14 +464,14 @@ def get_image_for_event(event_to_check, video_dir, wb_data):
         obj_classes[obj_track] = event_to_check[3][obj_track]["prediction"]
 
         # Draw the bounding boxes
-        cv2.rectangle(image_to_draw,  (bbox_data[0], bbox_data[1]), \
-            (bbox_data[2], bbox_data[3]), (0, 255, 255), 1)
+        # cv2.rectangle(image_to_draw,  (bbox_data[0], bbox_data[1]), \
+        #     (bbox_data[2], bbox_data[3]), (0, 255, 255), 1)
         fontScale = 0.5
         color = (255, 153, 255)
         font = cv2.FONT_HERSHEY_SIMPLEX
         thickness = 2
-        image_to_draw = cv2.putText(image_to_draw, str(obj_track), (bbox_data[0], bbox_data[1]), font, 
-                        fontScale, color, thickness, cv2.LINE_AA)
+        # image_to_draw = cv2.putText(image_to_draw, str(obj_track), (bbox_data[0], bbox_data[1]), font, 
+        #                 fontScale, color, thickness, cv2.LINE_AA)
 
     # Convert from bgr to rgb
     image_to_draw = cv2.cvtColor(image_to_draw, cv2.COLOR_BGR2RGB)

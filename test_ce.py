@@ -40,12 +40,12 @@ def build_ce1(class_mappings):
     ce1 = complexEvent(class_mappings)
     ce_structure = []
     # Set up our watchboxes
-    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[200,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
-    ce1.addWatchbox(name="bridgewatchbox1", region_id='2', positions=[213,274,772,772], classes=['rec_vehicle'], watchbox_id=1)
-    ce1.addWatchbox(name="bridgewatchbox2", region_id='2', positions=[816,366,1200,725], classes=['rec_vehicle'], watchbox_id=2)
-    ce1.addWatchbox(name="bridgewatchbox3", region_id='2', positions=[1294,290,1881,765], classes=['rec_vehicle'], watchbox_id=3)
-    ce1.addWatchbox(name="bridgewatchbox4", region_id='1', positions=[413,474,1072,772], classes=['tank'], watchbox_id=0)
-    ce1.addWatchbox(name="bridgewatchbox5", region_id='0', positions=[1,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0)
+    ce1.addWatchbox(name="bridgewatchbox0", region_id='2', positions=[200,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0, class_mappings=class_mappings)
+    ce1.addWatchbox(name="bridgewatchbox1", region_id='2', positions=[213,274,772,772], classes=['rec_vehicle'], watchbox_id=1, class_mappings=class_mappings)
+    ce1.addWatchbox(name="bridgewatchbox2", region_id='2', positions=[816,366,1200,725], classes=['rec_vehicle'], watchbox_id=2, class_mappings=class_mappings)
+    ce1.addWatchbox(name="bridgewatchbox3", region_id='2', positions=[1294,290,1881,765], classes=['rec_vehicle'], watchbox_id=3, class_mappings=class_mappings)
+    ce1.addWatchbox(name="bridgewatchbox4", region_id='1', positions=[413,474,1072,772], classes=['tank'], watchbox_id=0, class_mappings=class_mappings)
+    ce1.addWatchbox(name="bridgewatchbox5", region_id='0', positions=[1,1,1919,1079], classes=['rec_vehicle'], watchbox_id=0, class_mappings=class_mappings)
 
     # Now we set up the atomic events
 
@@ -69,7 +69,7 @@ def build_ce1(class_mappings):
 
     # And finally we add these events together
     # ce_structure = ce1.addEvents([SEQUENCE(vehicles_head_to_bridge, vehicles_approach_bridge), SEQUENCE(tanks_present, vehicles_plant_bombs, GEN_PERMUTE(vehicles_leave, "size"))])
-    ce_structure = ce1.addEvents([vehicles_head_to_bridge, vehicles_approach_bridge, AND(tanks_present, vehicles_plant_bombs), GEN_PERMUTE(vehicles_leave, "size")])
+    ce_structure = ce1.addEvents([vehicles_head_to_bridge, vehicles_approach_bridge, AND(tanks_present, vehicles_plant_bombs)])#, GEN_PERMUTE(vehicles_leave, "size")])
     # ce_structure = ce1.addEvents([vehicles_approach_bridge, vehicles_plant_bombs, GEN_PERMUTE(vehicles_leave, "size")])
 
     return ce1, ce_structure

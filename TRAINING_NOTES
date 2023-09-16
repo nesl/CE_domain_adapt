@@ -6,6 +6,11 @@ python train.py --weights yolov5s.pt --data data/coco_carla.yaml --device 1 --no
 # For Carla Baseline
 python train.py --weights yolov5s.pt --data data/coco_carla.yaml --device 1 --noval --epochs 15
 
+# For Soartech Adapt
+python train.py --weights soartechDetectorV2.pt --data data/soartech.yaml --device 1 --imgsz 640 --noval  --epochs 15
+
+# For Soartech Baseline
+python train.py --weights soartechDetectorV2.pt --data data/soartech.yaml --device 1 --imgsz 640 --noval  --epochs 15
 
 # Still have to:
 #  X Push domain adapt to github
@@ -16,9 +21,20 @@ python train.py --weights yolov5s.pt --data data/coco_carla.yaml --device 1 --no
 #  X THEN TAKE THE HARD DRIVE WITH YOU
 
 # At home:
-#  Create baseline and adapt for soartech
-#  Generate datasets and YAML for soartech
-#  Retrain soartech model on datasets   (MAY HAVE TO CHANGE INPUT SIZE)
-#  Do some image tests (you can just do a vidcap and read from a particular frame)
-#  Run soartech experiments
-#  
+#   X Create baseline and adapt for soartech
+#   X Generate datasets and YAML for soartech
+#   X Retrain soartech model on datasets   (MAY HAVE TO CHANGE INPUT SIZE)
+#   X Do some image tests (you can just do a vidcap and read from a particular frame)
+#   X Run soartech experiments
+
+
+#  What you still have to run:
+#    - email everyone
+#    - carla experiments with pre2 (be sure to ignore the correct folders)
+#    - soartech experiments for ce1 with baseline
+
+# On the paper:
+#    - When doing the baseline-adapt comparison, you should probably just do 1 fig per ce, and try to fit multiple on a line
+#    - Still have to think about how to present the 'annotation burden'. Maybe avg total time per CE for baseline vs adapt
+#             number of necessary annotations (e.g. how many labelled in the end) for baseline vs. adapt, and 
+#              maybe a short blurb on distribution of annotation for adapt (e.g. how much time on review, how much on annotation)

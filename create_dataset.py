@@ -136,10 +136,11 @@ def obtain_training_data(exp_dir_path, class_mappings, dataset_dir, exp_dir):
 # Locate where our annotations are
 
 # Carla annotations - adapted and baseline
-ce_type = "carla"
-train_dir = "/media/brianw/Elements/icra_data/carla_annotated/adapt"
+ce_type = "soartech"
+# train_dir = "/media/brianw/Elements/icra_data/carla_annotated/adapt"
 # train_dir = "/media/brianw/Elements/icra_data/carla_annotated/baseline"
-
+# train_dir = "annotated/soartech_annotated/adapt"
+train_dir = "annotated/soartech_annotated/baseline"
 
 import argparse
 
@@ -162,6 +163,6 @@ for exp_dir in os.listdir(train_dir):
     # Get the experimental dir path
     exp_dir_path = os.path.join(train_dir, exp_dir)
 
-    # obtain_training_data(exp_dir_path, class_mappings, dataset_dir, exp_dir)
-    print(exp_dir_path)
-    asdf
+    obtain_training_data(exp_dir_path, class_mappings, dataset_dir, exp_dir)
+    # print(exp_dir_path)
+    # asdf

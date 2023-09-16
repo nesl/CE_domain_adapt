@@ -122,6 +122,9 @@ st.subheader('Please use the slider to determine when the video starts')
 
 display_placeholder = st.empty()
 
+if comp[1] == "== 0":
+    nextpage()
+
 st.subheader("Find when the number of {x} objects {y} overlapping with the highlighted region".format(\
     x=comp[0], y=comp[1]))
 st.write("Ignore cases where there are no objects at all.")
