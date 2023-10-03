@@ -98,6 +98,9 @@ if st.button("I can't find this!"):
 
 
 # Stuff to annotate
+if st.session_state.page3 >= len(segments_to_annotate):
+    nextpage()
+
 current_segment = segments_to_annotate[st.session_state.page3]
 print("HIHIHI")
 print(current_segment)

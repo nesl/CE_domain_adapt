@@ -8,4 +8,6 @@ to_annotate/*
 annotated/*
 datasets/*
 models/*
-
+old/*
+__pycache__
+TRAINING_NOTES

@@ -4,9 +4,13 @@ import numpy as np
 import os
 import time
 
+import sys
+sys.path.append('../LanguageCE')
+
 from domain_adapt import initialize_labelling_data, grab_aes, \
     get_all_vicinal_events, remove_reundant_events
 from utils import sample_and_save_videos, add_metrics_to_json_file, get_video_total_frames
+
 from test_ce import build_ce1, build_ce2, build_ce3, \
      build_carla_ce1, build_carla_ce2, build_carla_ce3, build_carla_ce4, build_carla_ce5
 
@@ -26,14 +30,8 @@ st.markdown(
 )
 
 
-# video_parent_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/carla_videos_pre_2"
-# ae_result_folder = "/media/brianw/1511bdc1-b782-4302-9f3e-f6d90b91f857/home/brianw/ICRA_DATA/jetson_aes/ae_results_pre_2_train"
-# video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/carla_videos_pre_2"
-# ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_pre_2_train"
-video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/soartech_train"
-video_parent_folder = "/media/tuscan-chicken/Elements/icra_data/synthesized_data/carla/carla_videos_part1"
-ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results_training_soartech"
-ae_result_folder = "/media/tuscan-chicken/Elements/icra_data/ae_results/carla/ae_results_part1_nodomainadapt"
+video_parent_folder = "/media/brianw/Elements/icra_data/synthesized_data/carla/carla_videos_part1"
+ae_result_folder = "/media/brianw/Elements/icra_data/ae_results/carla/ae_results_part1_nodomainadapt"
 
 training_dir_list = "training_dirs.txt"
 
